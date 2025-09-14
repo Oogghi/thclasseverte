@@ -1,0 +1,279 @@
+/* Minimal black & white styling for the admin grid page (with left line indicators) */
+
+:root{
+  --gap: 12px;
+  --box-radius: 8px;
+  --border-color: #000;
+  --btn-border: #d0d0d0;
+  --danger: #b33;
+  --line-width: 58px;
+}
+
+* { box-sizing: border-box; }
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  background: #fbffd8;
+  color: #000;
+  margin: 20px;
+  line-height: 1.3;
+}
+
+.wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+h1 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+}
+
+.hint {
+  margin: 0 0 18px 0;
+  color: #222;
+  font-size: 14px;
+}
+
+/* Grid container holding rows */
+.grid {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--gap) * 1.1);
+}
+
+/* Row layout: left line number + row body */
+.row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 6px 4px;
+}
+
+/* Left line-number indicator */
+.line-num {
+  width: var(--line-width);
+  min-width: var(--line-width);
+  text-align: center;
+  font-size: 18px;
+  font-weight: 800;
+  color: #111;
+  background: #b1ffb7;
+  border: 1px solid #eee;
+  padding: 10px 8px;
+  border-radius: 8px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+}
+
+/* row body holds the boxes */
+.row-body {
+  flex: 1 1 auto;
+}
+
+/* Boxes container holds 4 boxes in a row */
+.boxes {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--gap);
+  align-items: start;
+}
+
+/* Each box style */
+.box {
+  border: 2px solid var(--border-color);
+  border-radius: var(--box-radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #fbffd8;
+  position: relative;
+}
+
+/* Number header inside box */
+.num {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 800;
+  color: #111;
+  background: #c3ffc8;
+  border: 1px solid #e6e6e6;
+  padding: 6px 0;
+  border-radius: 8px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+}
+
+/* Container for the four inputs */
+.box-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* inputs style */
+.box-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #bbb;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+  background: #e3e9b1;
+}
+
+.box-input:focus {
+  border-color: #888;
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.04);
+}
+
+/* Single add/remove button area under the whole grid */
+.add-area {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Add and remove buttons */
+.add-btn, .remove-btn {
+  min-width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  border: 1px solid var(--btn-border);
+  background: linear-gradient(#f4f4f4, #efefef);
+  color: #333;
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+}
+
+.add-btn:hover, .remove-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.06);
+  background: linear-gradient(#f8f8f8, #f2f2f2);
+}
+
+.add-btn:active, .remove-btn:active {
+  transform: translateY(-1px) scale(.995);
+}
+
+/* when remove is disabled */
+.remove-btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Buttons variants */
+.btn {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #bbb;
+  background: #fff;
+  cursor: pointer;
+}
+
+.btn-danger {
+  border-color: rgba(179,51,51,0.9);
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.btn-secondary {
+  border-color: #ccc;
+}
+
+/* Confirmation modal overlay */
+.confirm-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.35);
+  padding: 20px;
+}
+
+.confirm-modal[aria-hidden="false"] {
+  display: flex;
+}
+
+/* Modal panel */
+.confirm-panel {
+  background: #fff;
+  border-radius: 10px;
+  padding: 18px 20px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
+  text-align: center;
+}
+
+.confirm-panel h2 {
+  margin: 0 0 8px 0;
+  font-size: 18px;
+}
+
+.confirm-panel .confirm-text {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* Save button style */
+.actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+}
+.save-btn {
+  padding: 10px 18px;
+  font-size: 15px;
+  font-weight: 700;
+  background: #000;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.save-btn:hover { opacity: .95; }
+
+/* Responsive: small screens — hide wide left column and show slimmer line indicator */
+@media (max-width: 720px) {
+  .row { gap: 10px; }
+  .line-num { min-width: 42px; width: 42px; font-size: 16px; padding: 8px; }
+  .boxes { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 420px) {
+  /* stack line-num above the boxes on very small screens */
+  .row {
+    flex-direction: column;
+  }
+  .line-num {
+    width: auto;
+    min-width: 0;
+    align-self: flex-start;
+  }
+  .boxes { grid-template-columns: repeat(1, 1fr); }
+}

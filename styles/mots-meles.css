@@ -1,0 +1,144 @@
+:root{
+  --bg:#fbffd8;
+  --tile:#fafafa;
+  --text:#111;
+  --muted:#555;
+  --green:#2e7d32;
+  --yellow:#f9a825;
+  --grey:#757575;
+  --gap:8px;
+  --size:42px;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:Inter,system-ui,Arial;
+  background:var(--bg);
+  color:var(--text);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  min-height:100vh;
+  padding:20px;
+}
+
+.wrap{ width:min(640px,96vw); text-align:center; text-align: center; }
+
+h1 {
+  margin: 0 0 24px; /* bigger space under title */
+  font-size: 32px;
+  font-weight: 700;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns: repeat(12, var(--size));
+  grid-auto-rows: var(--size);
+  gap:var(--gap);
+  justify-content:center;
+  margin:12px auto 14px;
+}
+
+.tile{
+  background:var(--tile);
+  border:2px solid #999;
+  box-shadow:0 1px 3px rgba(0,0,0,0.15);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:700;
+  font-size:18px;
+  text-transform:uppercase;
+  user-select:none;
+  border-radius:6px;
+  color:var(--text);
+  transition: background .15s ease;
+}
+
+.tile.selected {
+  background: var(--yellow);
+  color: black;
+}
+.tile.found {
+  background: var(--green);
+  color: white;
+}
+
+.game-area {
+  display: flex;
+  justify-content: center; /* center horizontally in page */
+  align-items: center; /* vertically center grid + list */
+  gap: 50px; /* space between grid and list */
+}
+
+.wordlist {
+  margin: 0; /* remove default */
+  padding: 0;
+  text-align: left;
+}
+
+.wordlist li {
+  font-weight: 600;
+  margin: 4px 0;
+}
+.wordlist li.found {
+  text-decoration: line-through;
+  color: var(--grey);
+}
+.secret {
+  margin-top: 16px;
+  font-size:18px;
+  font-weight:700;
+  color: var(--green);
+}
+button{
+  margin:12px;
+  padding:8px 12px;
+  border-radius:8px;
+  border:0;
+  cursor:pointer;
+  background:#ddd;
+  font-weight:700;
+  color:#111;
+  box-shadow:0 1px 2px rgba(0,0,0,0.15);
+}
+button:hover{ background:#ccc; }
+button:active{ transform:translateY(1px); }
+
+/* Consigne plus palpitante */
+.instructions .highlight {
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: #000000; /* couleur dynamique */
+  animation: pulse 1.5s infinite;
+}
+
+/* Animation légère pour attirer l’œil */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+/* Alerte */
+.alert {
+  display: inline-flex; /* centré automatiquement */
+  align-items: center;
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  margin-bottom: 1rem;
+  font-weight: bold;
+}
+
+.alert-icon {
+  margin-right: 0.5rem;
+  font-size: 1.2rem;
+}
+
+.alert-text .warning {
+  color: #856404; /* jaune vif */
+}
