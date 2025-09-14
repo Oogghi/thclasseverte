@@ -16,12 +16,6 @@ let first = null;
 let second = null;
 let lock = false;
 
-// ---- HELPERS ----
-function strip(s){
-  if(!s) return '';
-  return s.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase();
-}
-
 function shuffle(arr){
   for(let i=arr.length-1;i>0;i--){
     const j=Math.floor(Math.random()*(i+1));
@@ -39,11 +33,8 @@ function show(msg, timeout=2000){
 // ---- LOAD WORDS FROM SUPABASE ----
 async function loadWords(){
   try {
-    // récupérer le paramètre ?cases=
     const urlParams = new URLSearchParams(window.location.search);
     const cases = parseInt(urlParams.get("cases") || "1");
-
-    // calcul de la semaine : (cases - 1) / 4 + 1
     const weekIndex = Math.floor((cases - 1) / 4) + 1;
 
     const { data, error } = await supabase
@@ -54,19 +45,18 @@ async function loadWords(){
 
     if(error) throw error;
 
-    // chaque semaine = 4 box × 4 mots
     const allWords = data.boxes.flatMap(b => b.words);
-    words = allWords.map(w => strip(w));
+    words = allWords; // <-- keep words as-is (with accents)
 
     startGame();
   } catch(err) {
     console.error("Erreur chargement supabase", err);
-    // fallback
     words = ['pomme','table','chien','fleur','voiture','maison','arbre','ordinateur',
              'stylo','livre','soleil','lune','voile','bateau','plage','montagne'];
     startGame();
   }
 }
+
 
 // ---- BUILD GAME ----
 function startGame(){

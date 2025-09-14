@@ -20,6 +20,13 @@ function getWeekPositionFromURL() {
   return Math.floor((cases - 1) / 4) + 1;
 }
 
+function normalizeWord(word) {
+  return word
+    .normalize("NFD")                 // split letter + accent
+    .replace(/\p{Diacritic}/gu, "")   // remove accents
+    .toUpperCase();                   // uppercase for consistency
+}
+
 // création grille vide
 function createGrid(){
   grid.innerHTML = "";
@@ -39,7 +46,7 @@ function createGrid(){
 
 // utilitaire pour sanitizer id de li
 function sanitizeId(s){
-  return s.toUpperCase().replace(/[^A-Z0-9]/g, "_");
+  return normalizeWord(s).replace(/[^A-Z0-9]/g, "_");
 }
 
 function shuffleArray(arr) {
@@ -63,7 +70,7 @@ async function loadWordsFromSupabase() {
     const words = data[0].boxes.flatMap(box => box.words);
     
     shuffleArray(words); // shuffle before selecting
-    selectedWords = words.slice(0, Math.min(10, words.length));
+    selectedWords = words.slice(0, Math.min(10, words.length)).map(w => normalizeWord(w));
 
     console.log(`Loaded ${selectedWords.length} words from week position ${weekPosition}`);
   } catch (e) {
@@ -173,9 +180,10 @@ function showWordList(words) {
   const ul = document.getElementById("wordList");
   ul.innerHTML = "";
   words.forEach(m => {
+    const normalized = normalizeWord(m);
     const li = document.createElement("li");
-    li.textContent = m.toUpperCase();
-    li.id = "word-" + sanitizeId(m);
+    li.textContent = normalized;
+    li.id = "word-" + sanitizeId(normalized);
     ul.appendChild(li);
   });
 }
@@ -287,9 +295,9 @@ function clearSelection(){
 // validation de la sélection quand on lâche la souris
 function validateSelection(){
   if(selection.length===0) return;
-  const mot = selection.map(t=>t.textContent).join("");
-  const rev = selection.map(t=>t.textContent).reverse().join("");
-  const upperWords = selectedWords.map(w=>w.toUpperCase());
+  const mot = normalizeWord(selection.map(t => t.textContent).join(""));
+  const rev = normalizeWord(selection.map(t => t.textContent).reverse().join(""));
+  const upperWords = selectedWords.map(normalizeWord);
 
   if(upperWords.includes(mot) || upperWords.includes(rev)){
     selection.forEach(t=>{ t.classList.remove("selected"); t.classList.add("found"); });
@@ -335,19 +343,30 @@ document.addEventListener("mouseup", ()=>{
 
 // bouton générer
 document.getElementById("generate").addEventListener("click", async () => {
-  if(selectedWords.length === 0){
-    return;
+  const weekPosition = getWeekPositionFromURL();
+
+  try {
+    const { data, error } = await supabase
+      .from('weeks')
+      .select('boxes')
+      .eq('position', weekPosition);
+
+    if (error) throw error;
+    if (!data || data.length === 0) throw new Error('No week found');
+
+    const words = data[0].boxes.flatMap(box => box.words);
+    shuffleArray(words);
+    const wordsForThisGrid = words
+      .slice(0, Math.min(10, words.length))
+      .map(w => normalizeWord(w));
+
+    createGrid();
+    placeWords(wordsForThisGrid);
+    showWordList(wordsForThisGrid);
+    secretSpan.textContent = "";
+  } catch (e) {
+    console.error("Erreur Supabase:", e);
   }
-
-  // Shuffle and pick 10 words each time
-  const shuffled = [...selectedWords];
-  shuffleArray(shuffled);
-  const wordsForThisGrid = shuffled.slice(0, Math.min(10, shuffled.length));
-
-  createGrid();
-  placeWords(wordsForThisGrid);
-  showWordList(wordsForThisGrid); // pass words for this grid
-  secretSpan.textContent="";
 });
 
 async function init() {
