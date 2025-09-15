@@ -1,0 +1,55 @@
+/* styles/snake.css - fullscreen with background #fbffd8 and simple UI */
+* { box-sizing: border-box; margin: 0; padding: 0; border: 0; }
+html, body { height: 100%; width: 100%; overflow: hidden; }
+
+body {
+  background: #fbffd8; /* demandé */
+  font-family: Helvetica, Arial, sans-serif;
+  color: #002000;
+}
+
+/* canvas occupe toute la fenêtre */
+canvas#game {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Place restart on left, score on right, both vertically centered */
+#ui {
+  position: fixed;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between; /* restart left, score right */
+  padding: 0 20px;
+  transform: translateY(-50%);
+  z-index: 20;
+}
+
+#score {
+  background: rgba(190, 220, 145, 0.95);
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(0,32,0,0.15);
+  font-weight: 600;
+  color: #002000;
+}
+
+#restart {
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #BEDC91;
+  border: 1px solid rgba(0,32,0,0.15);
+  cursor: pointer;
+  color: #002000;
+  font-weight: 700;
+}
+
+/* mobile: bouton plus petit */
+@media (max-width: 520px) {
+  #ui { left: 8px; top: 8px; gap: 6px; }
+  #score { padding: 5px 8px; font-size: 13px; }
+  #restart { padding: 5px 8px; font-size: 13px; }
+}
