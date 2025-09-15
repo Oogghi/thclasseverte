@@ -1,10 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
+// --- Configuration Supabase ---
 const SUPABASE_URL = 'https://rwloeubpmlnrycyzhzuo.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3bG9ldWJwbWxucnljeXpoenVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc4NDc0NjgsImV4cCI6MjA3MzQyMzQ2OH0.D9xpmy3K8m44O24MvGZYB-CqwX3MtG2ccsf2YpalxlI';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-
+// --- Variables principales ---
 const gridSize = 12;
 const grid = document.getElementById("grid");
 const secretSpan = document.getElementById("secret");
@@ -12,8 +13,9 @@ let tiles = [];
 let selectedWords = [];
 let selection = [];
 let selecting = false;
-let selDirection = null; // [dx, dy] ou null
+let selDirection = null; // direction en cours [dx, dy] ou null
 
+// --- Utilitaires ---
 function getWeekPositionFromURL() {
   const params = new URLSearchParams(window.location.search);
   const cases = parseInt(params.get('cases') || '1', 10);
@@ -21,32 +23,26 @@ function getWeekPositionFromURL() {
 }
 
 function normalizeWord(word) {
-  return word
-    .normalize("NFD")                 // split letter + accent
-    .replace(/\p{Diacritic}/gu, "")   // remove accents
-    .toUpperCase();                   // uppercase for consistency
+  return word.normalize("NFD").replace(/\p{Diacritic}/gu, "").toUpperCase();
 }
 
-// création grille vide
-function createGrid(){
+function createGrid() {
   grid.innerHTML = "";
   tiles = [];
-  for(let x=0;x<gridSize;x++){
-    for(let y=0;y<gridSize;y++){
-      const t = document.createElement("div");
-      t.className = "tile";
-      t.dataset.x = x;
-      t.dataset.y = y;
-      t.textContent = "";
-      grid.appendChild(t);
-      tiles.push(t);
+  for (let x = 0; x < gridSize; x++) {
+    for (let y = 0; y < gridSize; y++) {
+      const tile = document.createElement("div");
+      tile.className = "tile";
+      tile.dataset.x = x;
+      tile.dataset.y = y;
+      grid.appendChild(tile);
+      tiles.push(tile);
     }
   }
 }
 
-// utilitaire pour sanitizer id de li
-function sanitizeId(s){
-  return normalizeWord(s).replace(/[^A-Z0-9]/g, "_");
+function sanitizeId(str) {
+  return normalizeWord(str).replace(/[^A-Z0-9]/g, "_");
 }
 
 function shuffleArray(arr) {
@@ -56,6 +52,7 @@ function shuffleArray(arr) {
   }
 }
 
+// --- Chargement des mots ---
 async function loadWordsFromSupabase() {
   const weekPosition = getWeekPositionFromURL();
   try {
@@ -68,9 +65,11 @@ async function loadWordsFromSupabase() {
     if (!data || data.length === 0) throw new Error('No week found');
 
     const words = data[0].boxes.flatMap(box => box.words);
-    
-    shuffleArray(words); // shuffle before selecting
-    selectedWords = words.slice(0, Math.min(10, words.length)).map(w => normalizeWord(w));
+    shuffleArray(words);
+
+    selectedWords = words
+      .slice(0, Math.min(10, words.length))
+      .map(w => normalizeWord(w));
 
     console.log(`Loaded ${selectedWords.length} words from week position ${weekPosition}`);
   } catch (e) {
@@ -78,109 +77,89 @@ async function loadWordsFromSupabase() {
   }
 }
 
-// directions possibles (8 directions)
+// --- Directions possibles (8) ---
 const directions = [
-  [0,1],   // droite
-  [1,0],   // bas
-  [0,-1],  // gauche
-  [-1,0],  // haut
-  [1,1],   // diag bas-droite
-  [-1,1],  // diag bas-gauche
-  [1,-1],  // diag haut-droite
-  [-1,-1], // diag haut-gauche
+  [0, 1], [1, 0], [0, -1], [-1, 0],
+  [1, 1], [-1, 1], [1, -1], [-1, -1]
 ];
 
-// Vérifie si un mot peut être placé à x,y dans la direction dx,dy
-function canPlace(word, x, y, dx, dy){
-  for(let i=0;i<word.length;i++){
-    let nx = x + dx*i;
-    let ny = y + dy*i;
-    if(nx<0 || ny<0 || nx>=gridSize || ny>=gridSize) return false;
-    let tile = tiles[nx*gridSize + ny];
-    // si case remplie, la lettre doit matcher
-    if(tile.textContent !== "" && tile.textContent !== word[i]) return false;
+// Vérifie si un mot peut être placé
+function canPlace(word, x, y, dx, dy) {
+  for (let i = 0; i < word.length; i++) {
+    const nx = x + dx * i;
+    const ny = y + dy * i;
+    if (nx < 0 || ny < 0 || nx >= gridSize || ny >= gridSize) return false;
+    const tile = tiles[nx * gridSize + ny];
+    if (tile.textContent && tile.textContent !== word[i]) return false;
   }
   return true;
 }
 
-// place un mot à x,y avec direction dx,dy (word doit être en majuscule)
-function placeWord(word, x, y, dx, dy){
-  for(let i=0;i<word.length;i++){
-    let nx = x + dx*i;
-    let ny = y + dy*i;
-    tiles[nx*gridSize + ny].textContent = word[i];
+function placeWord(word, x, y, dx, dy) {
+  for (let i = 0; i < word.length; i++) {
+    const nx = x + dx * i;
+    const ny = y + dy * i;
+    tiles[nx * gridSize + ny].textContent = word[i];
   }
 }
 
-// placement aléatoire pour tous les mots avec retries
-function placeWords(words){
-  // on travaille sur une copie en majuscule
-  const wordsUpper = words.map(w => w.toUpperCase()).sort((a,b)=>b.length - a.length);
+// --- Placement avec diversification des directions ---
+function placeWords(words) {
+  const wordsSorted = words.map(w => w.toUpperCase()).sort((a, b) => b.length - a.length);
+  const maxAttempts = 100;
+  let attempts = 0;
 
-  const maxOverallAttempts = 80; // si on n'y arrive pas, on recommence la grille
-  let overallAttempts = 0;
-
-  while(true){
-    // vide la grille (avant tentative)
+  while (true) {
     tiles.forEach(t => t.textContent = "");
     let failed = false;
 
-    for(const word of wordsUpper){
+    for (const word of wordsSorted) {
       let placed = false;
-      // générer toutes les positions valides mais randomisées
       let positions = [];
-      for(let x=0;x<gridSize;x++){
-        for(let y=0;y<gridSize;y++){
-          for(const [dx,dy] of directions){
-            if(canPlace(word, x, y, dx, dy)) positions.push({x,y,dx,dy});
+
+      // Choisir un sous-ensemble random de directions pour ce mot
+      const shuffledDirections = [...directions];
+      shuffleArray(shuffledDirections);
+
+      for (let x = 0; x < gridSize; x++) {
+        for (let y = 0; y < gridSize; y++) {
+          for (const [dx, dy] of shuffledDirections) {
+            if (canPlace(word, x, y, dx, dy)) positions.push({ x, y, dx, dy });
           }
         }
       }
-      // shuffle positions
-      for(let i=positions.length-1;i>0;i--){
-        const j = Math.floor(Math.random()*(i+1));
-        [positions[i], positions[j]] = [positions[j], positions[i]];
-      }
 
-      // essayer les positions jusqu'à en trouver une
-      for(const pos of positions){
+      shuffleArray(positions);
+
+      if (positions.length > 0) {
+        const pos = positions[0]; // on prend une position aléatoire
         placeWord(word, pos.x, pos.y, pos.dx, pos.dy);
         placed = true;
-        break;
       }
 
-      if(!placed){
-        // échec pour ce mot → on marque failed et quitter la boucle pour refaire un essai
+      if (!placed) {
         console.warn("Échec placement pour", word);
         failed = true;
         break;
       }
     }
 
-    overallAttempts++;
-    if(!failed){
-      // tout placé -> remplir les vides et break
-      tiles.forEach(t=>{
-        if(!t.textContent) t.textContent = String.fromCharCode(65 + Math.floor(Math.random()*26));
+    attempts++;
+    if (!failed || attempts >= maxAttempts) {
+      tiles.forEach(t => {
+        if (!t.textContent) t.textContent = String.fromCharCode(65 + Math.floor(Math.random() * 26));
       });
       break;
-    } else if(overallAttempts >= maxOverallAttempts){
-      console.error("Impossible de placer tous les mots après", overallAttempts, "tentatives");
-      // pour éviter boucle infinie on place ce qu'on a et on remplit
-      tiles.forEach(t=>{
-        if(!t.textContent) t.textContent = String.fromCharCode(65 + Math.floor(Math.random()*26));
-      });
-      break;
-    } // else recommence la boucle
+    }
   }
 }
 
-// Afficher la liste de mots
+// --- Affichage de la liste ---
 function showWordList(words) {
   const ul = document.getElementById("wordList");
   ul.innerHTML = "";
-  words.forEach(m => {
-    const normalized = normalizeWord(m);
+  words.forEach(word => {
+    const normalized = normalizeWord(word);
     const li = document.createElement("li");
     li.textContent = normalized;
     li.id = "word-" + sanitizeId(normalized);
@@ -188,163 +167,125 @@ function showWordList(words) {
   });
 }
 
-// ---------------- sélection souris améliorée ----------------
-
-// helper pour lire coords d'une tile
-function coordsOf(tile){
-  return [parseInt(tile.dataset.x,10), parseInt(tile.dataset.y,10)];
+// --- Sélection utilisateur ---
+function coordsOf(tile) {
+  return [parseInt(tile.dataset.x, 10), parseInt(tile.dataset.y, 10)];
 }
 
-// vérifie si b est adjacent à a selon une direction (dx,dy)
-function isAdjacent(a,b){
-  const [ax,ay] = coordsOf(a);
-  const [bx,by] = coordsOf(b);
-  const dx = bx-ax;
-  const dy = by-ay;
-  // normalise à -1,0,1
-  if(Math.abs(dx)>1 || Math.abs(dy)>1) return false;
-  if(dx===0 && dy===0) return false;
-  return true;
+function isAdjacent(a, b) {
+  const [ax, ay] = coordsOf(a);
+  const [bx, by] = coordsOf(b);
+  const dx = bx - ax, dy = by - ay;
+  return !(Math.abs(dx) > 1 || Math.abs(dy) > 1 || (dx === 0 && dy === 0));
 }
 
-// calcule direction normalisée entre t1->t2
-function directionBetween(t1,t2){
-  const [x1,y1] = coordsOf(t1);
-  const [x2,y2] = coordsOf(t2);
-  const dx = x2-x1;
-  const dy = y2-y1;
-  return [dx===0?0:dx/Math.abs(dx), dy===0?0:dy/Math.abs(dy)];
+function directionBetween(t1, t2) {
+  const [x1, y1] = coordsOf(t1);
+  const [x2, y2] = coordsOf(t2);
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  return [dx === 0 ? 0 : dx / Math.abs(dx), dy === 0 ? 0 : dy / Math.abs(dy)];
 }
 
-function addSelection(tile){
-  // si tile déjà sélectionnée -> gérer désélection/backtrack
-  if(selection.includes(tile)){
-    const first = selection[0];
-    const last = selection[selection.length-1];
-    if(tile === last){
-      // désélection du dernier
+function addSelection(tile) {
+  if (selection.includes(tile)) {
+    const first = selection[0], last = selection[selection.length - 1];
+    if (tile === last) {
       last.classList.remove("selected");
       selection.pop();
-      // si plus qu'un élément, recalculer selDirection, sinon null
-      if(selection.length >= 2){
-        selDirection = directionBetween(selection[0], selection[1]);
-      } else {
-        selDirection = null;
-      }
-    } else if(tile === first){
-      // désélection du premier
+    } else if (tile === first) {
       first.classList.remove("selected");
       selection.shift();
-      if(selection.length >= 2){
-        selDirection = directionBetween(selection[0], selection[1]);
-      } else {
-        selDirection = null;
-      }
     }
+    selDirection = selection.length >= 2 ? directionBetween(selection[0], selection[1]) : null;
     return;
   }
 
-  // nouvelle sélection
-  if(selection.length === 0){
+  if (selection.length === 0) {
     selection.push(tile);
     tile.classList.add("selected");
     selDirection = null;
     return;
   }
 
-  if(selection.length === 1){
-    // deuxième tile → accept only if adjacent
-    if(!isAdjacent(selection[0], tile)) return;
+  if (selection.length === 1) {
+    if (!isAdjacent(selection[0], tile)) return;
     selDirection = directionBetween(selection[0], tile);
     selection.push(tile);
     tile.classList.add("selected");
     return;
   }
 
-  // length >= 2 -> on peut ajouter à la fin OU au début si ça suit la ligne
-  const first = selection[0];
-  const last = selection[selection.length-1];
-  const [fx,fy] = coordsOf(first);
-  const [lx,ly] = coordsOf(last);
-  const [dx,dy] = selDirection;
+  const first = selection[0], last = selection[selection.length - 1];
+  const [fx, fy] = coordsOf(first);
+  const [lx, ly] = coordsOf(last);
+  const [dx, dy] = selDirection;
 
-  // candidate pour la fin
-  if(parseInt(tile.dataset.x) === lx + dx && parseInt(tile.dataset.y) === ly + dy){
+  if (parseInt(tile.dataset.x) === lx + dx && parseInt(tile.dataset.y) === ly + dy) {
     selection.push(tile);
     tile.classList.add("selected");
     return;
   }
 
-  // candidate pour le début (extension à l'avant)
-  if(parseInt(tile.dataset.x) === fx - dx && parseInt(tile.dataset.y) === fy - dy){
+  if (parseInt(tile.dataset.x) === fx - dx && parseInt(tile.dataset.y) === fy - dy) {
     selection.unshift(tile);
     tile.classList.add("selected");
-    return;
   }
-
-  // sinon ignorer (force les lignes droites/diagonales)
 }
 
-// reset la selection
-function clearSelection(){
-  selection.forEach(t=>t.classList.remove("selected"));
-  selection=[];
-  selDirection=null;
+function clearSelection() {
+  selection.forEach(t => t.classList.remove("selected"));
+  selection = [];
+  selDirection = null;
 }
 
-// validation de la sélection quand on lâche la souris
-function validateSelection(){
-  if(selection.length===0) return;
+function validateSelection() {
+  if (selection.length === 0) return;
+
   const mot = normalizeWord(selection.map(t => t.textContent).join(""));
   const rev = normalizeWord(selection.map(t => t.textContent).reverse().join(""));
-  const upperWords = selectedWords.map(normalizeWord);
+  const normalizedWords = selectedWords.map(normalizeWord);
 
-  if(upperWords.includes(mot) || upperWords.includes(rev)){
-    selection.forEach(t=>{ t.classList.remove("selected"); t.classList.add("found"); });
-    const foundWord = upperWords.includes(mot)?mot:rev;
-    const li = document.getElementById("word-"+sanitizeId(foundWord));
-    if(li) li.classList.add("found");
+  if (normalizedWords.includes(mot) || normalizedWords.includes(rev)) {
+    selection.forEach(t => { t.classList.remove("selected"); t.classList.add("found"); });
+    const foundWord = normalizedWords.includes(mot) ? mot : rev;
+    const li = document.getElementById("word-" + sanitizeId(foundWord));
+    if (li) li.classList.add("found");
     checkWin();
   }
   clearSelection();
   selecting = false;
 }
 
-// ---------------- extract secret ----------------
-function checkWin(){
-  let allFound = selectedWords.every(w => {
-    const li = document.getElementById("word-"+sanitizeId(w));
+// --- Vérifie victoire ---
+function checkWin() {
+  const allFound = selectedWords.every(w => {
+    const li = document.getElementById("word-" + sanitizeId(w));
     return li && li.classList.contains("found");
   });
-  if(allFound){
-    secretSpan.textContent = "Bravo !"
-  }
+  if (allFound) secretSpan.textContent = "Bravo !";
 }
 
-// --------- events souris ----------
-grid.addEventListener("mousedown", e=>{
-  if(e.target.classList.contains("tile")){
+// --- Événements ---
+grid.addEventListener("mousedown", e => {
+  if (e.target.classList.contains("tile")) {
     selecting = true;
     clearSelection();
     addSelection(e.target);
   }
 });
-grid.addEventListener("mouseover", e=>{
-  if(selecting && e.target.classList.contains("tile")){
+grid.addEventListener("mouseover", e => {
+  if (selecting && e.target.classList.contains("tile")) {
     addSelection(e.target);
   }
 });
-document.addEventListener("mouseup", ()=>{
-  if(selecting){
-    validateSelection();
-    selecting = false;
-  }
+document.addEventListener("mouseup", () => {
+  if (selecting) validateSelection();
 });
 
-// bouton générer
+// --- Bouton générer ---
 document.getElementById("generate").addEventListener("click", async () => {
   const weekPosition = getWeekPositionFromURL();
-
   try {
     const { data, error } = await supabase
       .from('weeks')
@@ -356,27 +297,29 @@ document.getElementById("generate").addEventListener("click", async () => {
 
     const words = data[0].boxes.flatMap(box => box.words);
     shuffleArray(words);
-    const wordsForThisGrid = words
+
+    const wordsForGrid = words
       .slice(0, Math.min(10, words.length))
       .map(w => normalizeWord(w));
 
     createGrid();
-    placeWords(wordsForThisGrid);
-    showWordList(wordsForThisGrid);
+    placeWords(wordsForGrid);
+    showWordList(wordsForGrid);
     secretSpan.textContent = "";
   } catch (e) {
     console.error("Erreur Supabase:", e);
   }
 });
 
+// --- Initialisation ---
 async function init() {
-  createGrid();                    // create empty grid
-  await loadWordsFromSupabase();   // load words from supabase
-  if(selectedWords.length > 0){
-    placeWords(selectedWords);     // place words on grid
-    showWordList(selectedWords);   // display word list
+  createGrid();
+  await loadWordsFromSupabase();
+  if (selectedWords.length > 0) {
+    placeWords(selectedWords);
+    showWordList(selectedWords);
   }
   secretSpan.textContent = "";
 }
 
-init();  // call on page load
+init();
