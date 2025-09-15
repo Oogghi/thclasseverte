@@ -156,24 +156,29 @@ function resetSecretAndState(){
 }
 
 // ---------- GRID BUILDING ----------
+// on ne crée qu'une seule ligne au départ
 function buildGridForSecret(){
   grid.innerHTML = '';
   fitTileSize(secretLen);
-
-  for(let r=0;r<MAX_ROWS;r++){
-    for(let c=0;c<secretLen;c++){
-      const d = document.createElement('div');
-      d.className = 'tile';
-      d.dataset.r = r;
-      d.dataset.c = c;
-      grid.appendChild(d);
-    }
-  }
-
-  board = Array.from({length: MAX_ROWS}, () => Array(secretLen).fill(''));
+  board = [];
+  addNewRow();          // ajoute la première ligne
   row = 0; col = 0;
-  resetTileClasses();
   updateCaret();
+}
+
+// ajoute une ligne de tiles dans le DOM et dans le board
+function addNewRow(){
+  const r = board.length; // ligne suivante
+  const newRow = Array(secretLen).fill('');
+  board.push(newRow);
+
+  for(let c=0;c<secretLen;c++){
+    const d = document.createElement('div');
+    d.className = 'tile';
+    d.dataset.r = r;
+    d.dataset.c = c;
+    grid.appendChild(d);
+  }
 }
 
 function fitTileSize(cols){
@@ -298,11 +303,11 @@ function submitRow() {
   // move to next row
   row++;
   col = 0;
-  updateCaret();
 
-  if (row >= MAX_ROWS) {
-    show(`Dommage ! Le mot était : ${secret}`);
-  }
+  // n'ajoute une nouvelle ligne que si on n'a pas encore atteint MAX_ROWS
+  if(row < MAX_ROWS) addNewRow();
+
+  updateCaret();
 }
 
 // ---------- VISUAL HELPERS ----------

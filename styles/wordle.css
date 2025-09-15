@@ -1,17 +1,17 @@
 :root{
-  --bg:#fbffd8;          /* fond plus clair */
-  --tile:#fafafa;        /* couleur de base des cases */
-  --text:#111;           /* texte noir */
-  --muted:#555;          /* texte secondaire un peu plus sombre */
-  --green:#2e7d32;       /* vert foncé et lisible */
-  --yellow:#f9a825;      /* jaune saturé */
-  --grey:#757575;        /* gris plus marqué */
+  --bg:#fbffd8;
+  --tile:#fafafa;
+  --text:#111;
+  --muted:#555;
+  --green:#2e7d32;
+  --yellow:#f9a825;
+  --grey:#757575;
   --red:#b11212;
   --gap:8px;
   --size:56px;
 }
 
-*{box-sizing:border-box}
+*{box-sizing:border-box;}
 body{
   margin:0;
   font-family:Inter,system-ui,Arial;
@@ -26,7 +26,7 @@ body{
 
 .wrap{ width:min(540px,96vw); text-align:center; }
 
-h1{ margin:0 0 12px; font-size:32px; font-weight:700; }
+h1{ margin:0 0 12px; font-size:32px; font-weight:700; margin-bottom: 36px; }
 
 .grid{
   display:grid;
@@ -34,13 +34,13 @@ h1{ margin:0 0 12px; font-size:32px; font-weight:700; }
   grid-auto-rows: var(--size);
   gap:var(--gap);
   justify-content:center;
-  margin:12px auto 14px;
+  margin:12px auto 48px;
 }
 
 .tile{
-  background:var(--tile);
-  border:2px solid #999;         /* contour plus foncé */
-  box-shadow:0 1px 3px rgba(0,0,0,0.15); /* ombrage léger */
+  background: linear-gradient(135deg, #fef7e0, #ffe4b3);
+  border:2px solid #000;
+  box-shadow:0 2px 4px rgba(0,0,0,0.2);
   display:flex;
   align-items:center;
   justify-content:center;
@@ -48,31 +48,52 @@ h1{ margin:0 0 12px; font-size:32px; font-weight:700; }
   font-size:22px;
   text-transform:uppercase;
   user-select:none;
-  transition:background .15s ease, transform .12s ease;
-  border-radius:6px;
+  transition:background .2s ease, transform .12s ease;
+  border-radius:8px;
   color:var(--text);
-  position: relative; /* needed for caret */
+  position: relative;
 }
 
 .tile.filled{ transform: translateY(-3px); }
-.tile.absent{ background:var(--grey); color:white; }
-.tile.present{ background:var(--yellow); color:black; }
-.tile.correct{ background:var(--green); color:white; }
-.tile.missing { background:var(--red) !important; color:black; }
+.tile.absent{ background: var(--grey); color:white; }
+.tile.present{ background: var(--yellow); color:black; }
+.tile.correct{ background: var(--green); color:white; }
+.tile.missing { background: var(--red); color:black; }
 
-.controls{ display:flex; gap:8px; justify-content:center; margin-bottom:8px; }
-button{
-  padding:8px 12px;
-  border-radius:8px;
-  border:0;
-  cursor:pointer;
-  background:#ddd;
-  font-weight:700;
-  color:#111;
-  box-shadow:0 1px 2px rgba(0,0,0,0.15);
+.tile.active{
+  background: linear-gradient(135deg, #fff8d9, #ffd77a);
 }
-button:hover{ background:#ccc; }
-button:active{ transform:translateY(1px); }
+
+.controls{
+  display:flex;
+  gap:8px;
+  justify-content:center;
+  margin-bottom:12px;
+}
+
+button{
+  padding:10px 16px;
+  border-radius:12px;
+  border:2px solid #e0c97f;
+  cursor:pointer;
+  background: linear-gradient(135deg, #fef7e0, #ffe4b3);
+  font-weight:700;
+  font-size:1rem;
+  color:#111;
+  box-shadow:0 4px 6px rgba(0,0,0,0.15);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+}
+
+button:hover{
+  background: linear-gradient(135deg, #fff8d9, #ffd77a);
+  transform: translateY(-2px);
+  box-shadow:0 6px 10px rgba(0,0,0,0.2);
+}
+
+button:active{
+  transform: translateY(0);
+  box-shadow:0 3px 6px rgba(0,0,0,0.15);
+}
 
 .msg{
   min-height:22px;
@@ -81,38 +102,22 @@ button:active{ transform:translateY(1px); }
   margin-top:6px;
 }
 
-/* petite animation shake pour invalid */
-.shake{ animation:shake .55s cubic-bezier(.36,.07,.19,.97); }
-@keyframes shake {
-  10%,90%{ transform:translateX(-1px) }
-  20%,80%{ transform:translateX(2px) }
-  30%,50%,70%{ transform:translateX(-4px) }
-  40%,60%{ transform:translateX(4px) }
-}
-
-/* ---------- caret blinking inside active tile ---------- */
+/* caret blinking */
 .caret{
-  position: absolute;
-  left: 50%;
-  top: 40%;       /* moved higher inside the tile */
-  transform: translateX(-50%);
-  font-size: 22px;  /* slightly bigger */
-  line-height: 1;
-  pointer-events: none;
-  color: currentColor;
-  user-select: none;
-  animation: blink-caret 1s steps(1, start) infinite;
-  font-weight: 900; /* bolder */
-  opacity: 1;
+  position:absolute;
+  left:50%;
+  top:40%;
+  transform:translateX(-50%);
+  font-size:22px;
+  line-height:1;
+  pointer-events:none;
+  color:currentColor;
+  user-select:none;
+  animation: blink-caret 1s steps(1,start) infinite;
+  font-weight:900;
 }
 
-/* make the active tile darker */
-.tile.active {
-  background: #e0e0e0; /* darker than normal tile */
-}
-
-@keyframes blink-caret {
-  0%   { opacity: 1; }
-  50%  { opacity: 0; }
-  100% { opacity: 1; }
+@keyframes blink-caret{
+  0%,100%{opacity:1;}
+  50%{opacity:0;}
 }

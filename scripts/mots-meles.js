@@ -67,9 +67,13 @@ async function loadWordsFromSupabase() {
     const words = data[0].boxes.flatMap(box => box.words);
     shuffleArray(words);
 
+    // au lieu de juste normaliser
     selectedWords = words
       .slice(0, Math.min(10, words.length))
-      .map(w => normalizeWord(w));
+      .map(w => ({
+        original: w,               // version avec accents et minuscules
+        normalized: normalizeWord(w) // version pour la grille
+      }));
 
     console.log(`Loaded ${selectedWords.length} words from week position ${weekPosition}`);
   } catch (e) {
@@ -105,7 +109,7 @@ function placeWord(word, x, y, dx, dy) {
 
 // --- Placement avec diversification des directions ---
 function placeWords(words) {
-  const wordsSorted = words.map(w => w.toUpperCase()).sort((a, b) => b.length - a.length);
+  const wordsSorted = words.map(w => w.normalized).sort((a, b) => b.length - a.length);
   const maxAttempts = 100;
   let attempts = 0;
 
@@ -159,10 +163,9 @@ function showWordList(words) {
   const ul = document.getElementById("wordList");
   ul.innerHTML = "";
   words.forEach(word => {
-    const normalized = normalizeWord(word);
     const li = document.createElement("li");
-    li.textContent = normalized;
-    li.id = "word-" + sanitizeId(normalized);
+    li.textContent = word.original;             // <-- garde accents et minuscules
+    li.id = "word-" + sanitizeId(word.normalized); // toujours normalisé pour l'identifiant
     ul.appendChild(li);
   });
 }
@@ -244,7 +247,7 @@ function validateSelection() {
 
   const mot = normalizeWord(selection.map(t => t.textContent).join(""));
   const rev = normalizeWord(selection.map(t => t.textContent).reverse().join(""));
-  const normalizedWords = selectedWords.map(normalizeWord);
+  const normalizedWords = selectedWords.map(w => w.normalized);
 
   if (normalizedWords.includes(mot) || normalizedWords.includes(rev)) {
     selection.forEach(t => { t.classList.remove("selected"); t.classList.add("found"); });
