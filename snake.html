@@ -7,13 +7,15 @@
   <link rel="stylesheet" href="styles/snake.css">
 </head>
 <body>
-  <!-- petite UI minimaliste -->
-  <div id="ui">
-    <div id="restart">Rejouer</div>
-    <div id="score">Score: 0</div>
-    </div>
-    <canvas id="game"></canvas>
+  <canvas id="game"></canvas>
 
+  <!-- pop-up game over -->
+  <div id="game-over-popup" class="hidden">
+    <div id="game-over-content">
+      <h1 id="final-score">Score: 0</h1>
+      <button id="popup-restart">Rejouer</button>
+    </div>
+  </div>
 
   <script src="scripts/snake.js" defer></script>
 </body>

@@ -1,50 +1,53 @@
- body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      background: #fbffd8;
-      margin: 0;
-      padding: 20px;
-    }
+body {
+  font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #fbffd8; /* même que Snake */
+  color: #002000;
+  margin: 0;
+  padding: 20px;
+}
 
-    h1 {
-      margin-bottom: 40px;
-      color: #ff7f2a;
-      font-size: 36px;
-      text-align: center;
-    }
+h1 {
+  margin-bottom: 40px;
+  color: #002000; /* même que Snake */
+  font-size: 36px;
+  text-align: center;
+}
 
-    .buttons {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
-      width: 100%;
-      max-width: 300px;
-    }
+.buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  max-width: 300px;
+}
 
-    .buttons a {
-      display: block;
-      padding: 16px 0;
-      text-align: center;
-      font-weight: 700;
-      font-size: 18px;
-      color: #fff;
-      text-decoration: none;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #ff9a3c, #ff5f00);
-      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
+.buttons a {
+  display: block;
+  padding: 12px 30px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #111; /* texte sombre comme Snake */
+  text-decoration: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fef7e0, #ffe4b3); /* même dégradé que popup Snake */
+  border: 2px solid #e0c97f;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+}
 
-    .buttons a:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 8px 20px rgba(0,0,0,0.25);
-    }
+.buttons a:hover {
+  background: linear-gradient(135deg, #fff8d9, #ffd77a);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 10px rgba(0,0,0,0.2);
+}
 
-    .buttons a:active {
-      transform: translateY(0px) scale(0.98);
-      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-    }
+.buttons a:active {
+  transform: translateY(0);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+}
