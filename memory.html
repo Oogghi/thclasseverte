@@ -9,13 +9,22 @@
 </head>
 <body>
   <main class="wrap">
-    <h1>Memory - Trouve les pairs de mots !</h1>
+    <h1>Memory - Trouve les paires de mots !</h1>
     <div id="grid" class="grid" aria-label="Grille Memory"></div>
-    <div class="controls">
-        <button id="reset">Recommencer</button>
-    </div>
-    <div id="msg" class="msg"></div>
+
+    <!-- small inline message area (kept for short hints) -->
+    <div id="msg" class="msg" aria-live="polite"></div>
   </main>
+
+  <!-- Game over popup -->
+  <div id="game-over-popup" class="hidden" role="dialog" aria-modal="true" aria-labelledby="final-score">
+    <div id="game-over-content">
+      <h1 id="final-score">Score: 0</h1>
+      <div id="final-details" style="margin-bottom:20px; font-weight:600; color:var(--muted,#555);"></div>
+      <!-- Button now 'Fermer' and will attempt to close the tab -->
+      <button id="popup-close">Fermer</button>
+    </div>
+  </div>
 
   <script type="module" src="scripts/memory.js"></script>
 </body>

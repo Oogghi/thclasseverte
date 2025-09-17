@@ -1,8 +1,11 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
 const GRID = document.getElementById('grid');
-const RESET_BTN = document.getElementById('reset');
 const MSG = document.getElementById('msg');
+const POPUP = document.getElementById('game-over-popup');
+const FINAL_SCORE_TITLE = document.getElementById('final-score');
+const FINAL_DETAILS = document.getElementById('final-details');
+const POPUP_CLOSE = document.getElementById('popup-close');
 
 // ---- SUPABASE ----
 const SUPABASE_URL = "https://rwloeubpmlnrycyzhzuo.supabase.co";
@@ -15,6 +18,11 @@ let tiles = [];
 let first = null;
 let second = null;
 let lock = false;
+
+// scoring
+let flipsCount = 0;   // number of individual card clicks
+let triesCount = 0;   // number of attempts (every time a second card is flipped)
+let matchesCount = 0; // number of matched pairs
 
 function shuffle(arr){
   for(let i=arr.length-1;i>0;i--){
@@ -57,10 +65,64 @@ async function loadWords(){
   }
 }
 
+// ---- FIT TEXT TO TILE (single-line guaranteed) ----
+function fitTextToTileSingleLine(backSpan, tileEl){
+  const txt = backSpan.textContent || '';
+  const tileStyle = getComputedStyle(tileEl);
+  const paddingLeft = parseFloat(tileStyle.paddingLeft || 8);
+  const paddingRight = parseFloat(tileStyle.paddingRight || 8);
+
+  // compute available width inside the tile for the text
+  const tileWidth = tileEl.clientWidth - paddingLeft - paddingRight;
+  const tileHeight = tileEl.clientHeight;
+
+  // start font-size relative to tile size (max)
+  let fs = Math.floor(tileHeight * 0.5); // initial guess: 50% of tile height
+  const minFs = 10;
+  const maxFs = Math.max(12, Math.floor(tileHeight * 0.7));
+
+  fs = Math.min(maxFs, Math.max(minFs, fs));
+
+  // apply font-size, then shrink until the text fits in one line (scrollWidth <= clientWidth)
+  backSpan.style.fontSize = fs + 'px';
+  backSpan.style.whiteSpace = 'nowrap'; // ensure single line (redundant with CSS)
+  backSpan.style.lineHeight = '1';
+
+  // If scrollWidth is larger than available width, reduce font size until it fits (or min)
+  // Use a loop that reduces by 1px increments for precision.
+  // A safety cap on iterations prevents accidental infinite loops.
+  let attempts = 0;
+  const maxAttempts = 100;
+  while(attempts < maxAttempts){
+    const scrollW = backSpan.scrollWidth;
+    const clientW = backSpan.clientWidth;
+    // scrollWidth includes padding; compare to the visible width (clientWidth)
+    if(scrollW <= clientW || fs <= minFs) break;
+    fs = fs - 1;
+    backSpan.style.fontSize = fs + 'px';
+    attempts++;
+  }
+
+  // If the resulting font-size is tiny and still doesn't fit, we keep it at minFs (rare)
+  if(fs < minFs) backSpan.style.fontSize = minFs + 'px';
+}
+
+// adjust all backs (called after grid created and on resize)
+function adjustAllCardFonts(){
+  tiles.forEach(tile => {
+    const backSpan = tile.querySelector('.back');
+    fitTextToTileSingleLine(backSpan, tile);
+  });
+}
 
 // ---- BUILD GAME ----
 function startGame(){
-  const pairWords = [...words, ...words]; // 32 cartes
+  // reset scoring
+  flipsCount = 0;
+  triesCount = 0;
+  matchesCount = 0;
+
+  const pairWords = [...words, ...words]; // duplicated words
   shuffle(pairWords);
 
   GRID.innerHTML = '';
@@ -90,6 +152,13 @@ function startGame(){
   first = null;
   second = null;
   lock = false;
+
+  // wait a frame so layout is settled, then fit fonts
+  requestAnimationFrame(() => {
+    adjustAllCardFonts();
+  });
+
+  hideGameOver();
 }
 
 // ---- TILE CLICK ----
@@ -98,12 +167,17 @@ function onTileClick(e){
   const t = e.currentTarget;
   if(t.classList.contains('flipped') || t.classList.contains('matched')) return;
 
+  // increment flips
+  flipsCount++;
+
   t.classList.add('flipped');
 
   if(!first){
     first = t;
   } else {
+    // second card chosen
     second = t;
+    triesCount++;
     lock = true;
     setTimeout(checkMatch, 600);
   }
@@ -113,6 +187,7 @@ function checkMatch(){
   if(first.dataset.word === second.dataset.word){
     first.classList.add('matched');
     second.classList.add('matched');
+    matchesCount++;
   } else {
     first.classList.remove('flipped');
     second.classList.remove('flipped');
@@ -121,13 +196,86 @@ function checkMatch(){
   second = null;
   lock = false;
 
-  if(tiles.every(t=>t.classList.contains('matched'))){
-    show('Bravo, tu as trouvé toutes les paires !', 0);
+  if(matchesCount === words.length){
+    showGameOver();
   }
 }
 
-// ---- RESET ----
-RESET_BTN.addEventListener('click', startGame);
+// ---- GAME OVER POPUP ----
+function showGameOver(){
+  // calculs de base
+  const efficiency = triesCount > 0 ? Math.round((matchesCount / triesCount) * 100) : 0;
+  const approxTriesFromFlips = Math.round(flipsCount / 2);
+
+  // === FORMULE DE SCORE (modifiable) ===
+  // Option B: mix efficacité (80%) + bonus rapidité (20%)
+  // minPossibleFlips = matchesCount * 2
+  const minPossibleFlips = matchesCount * 2;
+  const speedBonus = Math.max(0, (minPossibleFlips / Math.max(1, flipsCount))); // 1 => 1 = meilleur bonus
+  const efficiencyPart = (matchesCount / Math.max(1, triesCount)) * 800; // 0..800
+  const speedPart = speedBonus * 200; // 0..200
+  const score = Math.round(efficiencyPart + speedPart); // total 0..1000
+
+  // affichage principal (gros titre)
+  FINAL_SCORE_TITLE.textContent = 'Score : ' + score.toLocaleString();
+
+  // détails (multi-ligne via innerHTML)
+  FINAL_DETAILS.innerHTML =
+    `Tentatives : ${triesCount} <br>` +
+    `Efficacité : ${efficiency}%`;
+
+  // affiche la popup et focus sur le bouton
+  POPUP.classList.remove('hidden');
+  POPUP_CLOSE.focus();
+}
+
+function hideGameOver(){
+  POPUP.classList.add('hidden');
+}
+
+// Attempt to close the tab when user clicks "Fermer".
+// Many browsers block window.close() unless the page was opened by script.
+// We'll try window.close(); if it does not close, fallback to navigate to about:blank and hide the popup.
+POPUP_CLOSE.addEventListener('click', () => {
+  try {
+    window.close();
+    // give a short delay — if not closed, perform fallback
+    setTimeout(() => {
+      // If still here, try a stronger trick and then fallback to about:blank
+      // (some browsers allow window.open('', '_self'); window.close();)
+      try {
+        window.open('', '_self');
+        window.close();
+      } catch(e) {
+        // ignore
+      }
+      // final fallback: navigate away to about:blank for privacy / close feeling
+      window.location.href = 'about:blank';
+      hideGameOver();
+    }, 200);
+  } catch (err) {
+    // fallback
+    window.location.href = 'about:blank';
+    hideGameOver();
+  }
+});
+
+// clicking overlay outside content hides popup (keeps current tab open)
+POPUP.addEventListener('click', (e) => {
+  if(e.target === POPUP){
+    hideGameOver();
+  }
+});
+
+// recalc fonts on resize (debounced)
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  if(resizeTimer) clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    adjustAllCardFonts();
+    resizeTimer = null;
+  }, 120);
+});
 
 // ---- INIT ----
 loadWords();

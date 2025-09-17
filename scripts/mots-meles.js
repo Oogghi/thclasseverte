@@ -15,6 +15,11 @@ let selection = [];
 let selecting = false;
 let selDirection = null; // direction en cours [dx, dy] ou null
 
+// Expose for debugging/testing
+window.selectedWords = selectedWords;
+window.showGameOverPopup = showGameOverPopup;
+window.calculateScore = calculateScore;
+
 // --- Utilitaires ---
 function getWeekPositionFromURL() {
   const params = new URLSearchParams(window.location.search);
@@ -260,13 +265,53 @@ function validateSelection() {
   selecting = false;
 }
 
-// --- Vérifie victoire ---
+function calculateScore() {
+  // Score = total letters of found words
+  return selectedWords.reduce((score, w) => {
+    const li = document.getElementById("word-" + sanitizeId(w.normalized));
+    return li && li.classList.contains("found") ? score + w.normalized.length : score;
+  }, 0);
+}
+
+function showGameOverPopup() {
+  const popup = document.getElementById("game-over-popup");
+  const finalScore = document.getElementById("final-score");
+  const finalDetails = document.getElementById("final-details");
+
+  const score = calculateScore();
+  finalScore.textContent = `Score: ${score}`;
+
+  const wordsFound = selectedWords.filter(w => {
+    const li = document.getElementById("word-" + sanitizeId(w.normalized));
+    return li && li.classList.contains("found");
+  }).map(w => w.original);
+
+  finalDetails.textContent = `Bravo ! Tu as trouvé tous les mots !`;
+
+  popup.classList.remove("hidden");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const popupClose = document.getElementById("popup-close");
+  if (popupClose) {
+    popupClose.addEventListener("click", () => {
+      window.location.href = "about:blank";
+      const popup = document.getElementById("game-over-popup");
+      popup.classList.add("hidden");
+    });
+  }
+});
+
+// --- Modifier checkWin pour utiliser le popup ---
 function checkWin() {
   const allFound = selectedWords.every(w => {
-    const li = document.getElementById("word-" + sanitizeId(w));
+    const li = document.getElementById("word-" + sanitizeId(w.normalized));
     return li && li.classList.contains("found");
   });
-  if (allFound) secretSpan.textContent = "Bravo !";
+  if (allFound) {
+    secretSpan.textContent = "Bravo !";
+    showGameOverPopup(); // <-- show popup
+  }
 }
 
 // --- Événements ---
@@ -284,34 +329,6 @@ grid.addEventListener("mouseover", e => {
 });
 document.addEventListener("mouseup", () => {
   if (selecting) validateSelection();
-});
-
-// --- Bouton générer ---
-document.getElementById("generate").addEventListener("click", async () => {
-  const weekPosition = getWeekPositionFromURL();
-  try {
-    const { data, error } = await supabase
-      .from('weeks')
-      .select('boxes')
-      .eq('position', weekPosition);
-
-    if (error) throw error;
-    if (!data || data.length === 0) throw new Error('No week found');
-
-    const words = data[0].boxes.flatMap(box => box.words);
-    shuffleArray(words);
-
-    const wordsForGrid = words
-      .slice(0, Math.min(10, words.length))
-      .map(w => normalizeWord(w));
-
-    createGrid();
-    placeWords(wordsForGrid);
-    showWordList(wordsForGrid);
-    secretSpan.textContent = "";
-  } catch (e) {
-    console.error("Erreur Supabase:", e);
-  }
 });
 
 // --- Initialisation ---

@@ -206,10 +206,11 @@
   function trimPath(maxLenPx) {
     let total = 0;
     for (let i = 0; i < path.length - 1; i++) {
-      const a = path[i], b = path[i + 1], segLen = dist(a, b);
+      const a = path[i], b = path[i + 1];
+      const segLen = dist(a, b);
       total += segLen;
       if (total > maxLenPx) {
-        path.splice(i + 2);
+        path.splice(i + 1); // ⚠️ keep one more point, don’t cut deep
         break;
       }
     }
@@ -230,11 +231,30 @@
     return { ...path[path.length - 1] };
   }
 
+  function catmullRom(p0, p1, p2, p3, t) {
+    const t2 = t * t;
+    const t3 = t2 * t;
+    return {
+      x: 0.5 * ((2 * p1.x) +
+        (-p0.x + p2.x) * t +
+        (2*p0.x - 5*p1.x + 4*p2.x - p3.x) * t2 +
+        (-p0.x + 3*p1.x - 3*p2.x + p3.x) * t3),
+      y: 0.5 * ((2 * p1.y) +
+        (-p0.y + p2.y) * t +
+        (2*p0.y - 5*p1.y + 4*p2.y - p3.y) * t2 +
+        (-p0.y + 3*p1.y - 3*p2.y + p3.y) * t3)
+    };
+  }
+
   function computeSegmentsFromPath() {
     const newSegs = [];
+    const totalSpan = (segmentCount - 1) * GRID;
+
     for (let i = 0; i < segmentCount; i++) {
-      newSegs.push(getPointAtDistance(i * GRID));
+      const d = i * GRID;
+      newSegs.push(getPointAtDistance(d));
     }
+
     segments = newSegs;
   }
 
@@ -359,7 +379,7 @@ function update(dt) {
 
   // Interpolation linéaire de la longueur : on approche targetSegmentCount progressivement
   if (segmentCount < targetSegmentCount) {
-    segmentCount = Math.min(targetSegmentCount, segmentCount + GROW_SEGMENTS_PER_SEC * dt);
+    segmentCount = targetSegmentCount;
   }
 
   computeSegmentsFromPath();
@@ -502,7 +522,8 @@ function eatFood() {
 
     // Corps du serpent
     if (segments.length > 1) {
-      const headPoint = segments[0], tailPoint = segments[segments.length - 1];
+      const headPoint = segments[0];
+      const tailPoint = segments[segments.length - 1];
       const grad = ctx.createLinearGradient(headPoint.x, headPoint.y, tailPoint.x, tailPoint.y);
       grad.addColorStop(0, SNAKE_A);
       grad.addColorStop(1, SNAKE_B);
@@ -512,9 +533,20 @@ function eatFood() {
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
       ctx.strokeStyle = grad;
+
       ctx.beginPath();
       ctx.moveTo(segments[0].x, segments[0].y);
-      for (let i = 1; i < segments.length; i++) ctx.lineTo(segments[i].x, segments[i].y);
+
+      // 🔹 Smooth rendering with quadratic curves
+      for (let i = 1; i < segments.length - 1; i++) {
+        const midX = (segments[i].x + segments[i + 1].x) / 2;
+        const midY = (segments[i].y + segments[i + 1].y) / 2;
+        ctx.quadraticCurveTo(segments[i].x, segments[i].y, midX, midY);
+      }
+
+      // connect to last point
+      ctx.lineTo(segments[segments.length - 1].x, segments[segments.length - 1].y);
+
       ctx.stroke();
       ctx.restore();
     }

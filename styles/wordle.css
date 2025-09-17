@@ -121,3 +121,71 @@ button:active{
   0%,100%{opacity:1;}
   50%{opacity:0;}
 }
+
+/* ---------- Popup styles ---------- */
+#game-over-popup {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+}
+
+#game-over-popup.hidden {
+  display: none;
+}
+
+#game-over-content {
+  background: linear-gradient(135deg, #fef7e0, #ffe4b3);
+  padding: 40px 60px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  border: 2px solid #e0c97f;
+  max-width: 360px;
+  width: 90%;
+}
+
+#game-over-content h1 {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+  font-weight: 700;
+  color: var(--text, #111);
+}
+
+#final-score {
+  font-size: 1.4rem;
+  margin-bottom: 10px;
+  color: var(--muted, #555);
+  font-weight: 700;
+}
+
+#popup-close {
+  padding: 12px 30px;
+  margin-top: 20px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  border: 2px solid #e0c97f;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fef7e0, #ffe4b3);
+  color: #111;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease;
+}
+
+#popup-close:hover {
+  background: linear-gradient(135deg, #fff8d9, #ffd77a);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 10px rgba(0,0,0,0.2);
+}
+
+#popup-close:active {
+  transform: translateY(0);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+}

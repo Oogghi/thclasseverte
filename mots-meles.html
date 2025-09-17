@@ -11,8 +11,8 @@
 <div class="wrap">
   <h1 class="instructions">Retrouve 10 des 16 mots de la semaine !</h1>
   <div class="alert">
-    <span class="alert-icon">⚠️</span>
-    <span class="alert-text"><span class="warning">Attention :</span> Les mots dans la grille, étant en majuscules, n'ont pas d'accent.</span>
+    <span class="alert-icon">💡</span>
+    <span class="alert-text">Pour que ce ne soit pas trop facile, les mots de la grille n'ont pas d'accents !</span>
   </div>
   <div class="game-area">
     <div id="grid" class="grid"></div>
@@ -20,7 +20,15 @@
   </div>
 
   <div class="secret" id="secret"></div>
-  <button id="generate">Recommencer du début !</button>
+
+  <div id="game-over-popup" class="hidden" role="dialog" aria-modal="true" aria-labelledby="final-score">
+    <div id="game-over-content">
+      <h1 id="final-score">Score: 0</h1>
+      <div id="final-details" style="margin-bottom:20px; font-weight:600; color:var(--muted,#555);"></div>
+      <button id="popup-close">Fermer</button>
+    </div>
+  </div>
+
 </div>
 <script type="module" src="scripts/mots-meles.js"></script>
 </body>

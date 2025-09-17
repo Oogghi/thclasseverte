@@ -109,13 +109,6 @@ h1 {
   position: relative;
 }
 
-.wordlist li.found::after {
-  content: "✔";
-  color: var(--green);
-  font-weight: bold;
-  margin-left: 6px;
-}
-
 .secret {
   margin-top: 16px;
   font-size:18px;
@@ -182,4 +175,36 @@ button:active {
 
 .alert-text .warning {
   color: #856404;
+}
+
+#game-over-popup {
+  position: fixed; /* stay on top of everything */
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.5); /* dark overlay */
+  display: flex;
+  justify-content: center;
+  align-items: center; /* vertically center */
+  z-index: 50;
+}
+
+#game-over-popup.hidden {
+  display: none; /* hide initially */
+}
+
+#game-over-content {
+  background: linear-gradient(135deg, #fef7e0, #ffe4b3);
+  padding: 40px 60px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  border: 2px solid #e0c97f;
+  max-width: 360px;
+  width: 90%;
+}
+
+#game-over-popup.hidden {
+  display: none;
 }
