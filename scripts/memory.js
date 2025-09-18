@@ -237,33 +237,13 @@ function hideGameOver(){
 // Many browsers block window.close() unless the page was opened by script.
 // We'll try window.close(); if it does not close, fallback to navigate to about:blank and hide the popup.
 POPUP_CLOSE.addEventListener('click', () => {
-  try {
-    window.close();
-    // give a short delay — if not closed, perform fallback
-    setTimeout(() => {
-      // If still here, try a stronger trick and then fallback to about:blank
-      // (some browsers allow window.open('', '_self'); window.close();)
-      try {
-        window.open('', '_self');
-        window.close();
-      } catch(e) {
-        // ignore
-      }
-      // final fallback: navigate away to about:blank for privacy / close feeling
-      window.location.href = 'about:blank';
-      hideGameOver();
-    }, 200);
-  } catch (err) {
-    // fallback
-    window.location.href = 'about:blank';
-    hideGameOver();
-  }
+  window.location.href = "finish.html";
 });
 
 // clicking overlay outside content hides popup (keeps current tab open)
 POPUP.addEventListener('click', (e) => {
   if(e.target === POPUP){
-    hideGameOver();
+    window.location.href = "finish.html";
   }
 });
 

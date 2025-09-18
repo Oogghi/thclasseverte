@@ -113,54 +113,95 @@ function placeWord(word, x, y, dx, dy) {
 }
 
 // --- Placement avec diversification des directions ---
+// --- Placement avec diversification des directions (remplace la précédente) ---
 function placeWords(words) {
   const wordsSorted = words.map(w => w.normalized).sort((a, b) => b.length - a.length);
   const maxAttempts = 100;
-  let attempts = 0;
+  let attempt = 0;
+  const dirIndex = (dx, dy) => directions.findIndex(d => d[0] === dx && d[1] === dy);
 
-  while (true) {
+  while (attempt < maxAttempts) {
+    // clear grid
     tiles.forEach(t => t.textContent = "");
     let failed = false;
 
-    for (const word of wordsSorted) {
-      let placed = false;
-      let positions = [];
+    // prepare shuffled list of all cell coords to avoid scanning bias
+    const allCells = [];
+    for (let x = 0; x < gridSize; x++) {
+      for (let y = 0; y < gridSize; y++) {
+        allCells.push({ x, y });
+      }
+    }
+    shuffleArray(allCells);
 
-      // Choisir un sous-ensemble random de directions pour ce mot
-      const shuffledDirections = [...directions];
-      shuffleArray(shuffledDirections);
+    // track how many times each direction was used
+    const directionUsage = new Array(directions.length).fill(0);
 
-      for (let x = 0; x < gridSize; x++) {
-        for (let y = 0; y < gridSize; y++) {
-          for (const [dx, dy] of shuffledDirections) {
-            if (canPlace(word, x, y, dx, dy)) positions.push({ x, y, dx, dy });
+    // try to ensure the first N words use distinct directions if possible
+    const minUnique = Math.min(wordsSorted.length, directions.length);
+
+    for (let wi = 0; wi < wordsSorted.length; wi++) {
+      const word = wordsSorted[wi];
+      const positions = [];
+
+      // collect all possible placements for this word
+      for (const { x, y } of allCells) {
+        for (const [dx, dy] of directions) {
+          if (canPlace(word, x, y, dx, dy)) {
+            positions.push({ x, y, dx, dy, dirIdx: dirIndex(dx, dy) });
           }
         }
       }
 
-      shuffleArray(positions);
+      shuffleArray(positions); // randomize positions order
 
-      if (positions.length > 0) {
-        const pos = positions[0]; // on prend une position aléatoire
-        placeWord(word, pos.x, pos.y, pos.dx, pos.dy);
-        placed = true;
-      }
-
-      if (!placed) {
-        console.warn("Échec placement pour", word);
+      if (positions.length === 0) {
         failed = true;
         break;
       }
+
+      let chosen = null;
+
+      // Phase 1: for the first minUnique words, prefer unused directions
+      if (wi < minUnique) {
+        const unused = positions.filter(p => directionUsage[p.dirIdx] === 0);
+        if (unused.length > 0) {
+          chosen = unused[Math.floor(Math.random() * unused.length)];
+        }
+      }
+
+      // Phase 2 / fallback: choose position whose direction has the smallest usage
+      if (!chosen) {
+        positions.sort((a, b) => {
+          const ua = directionUsage[a.dirIdx];
+          const ub = directionUsage[b.dirIdx];
+          if (ua !== ub) return ua - ub;
+          return Math.random() - 0.5; // tie-breaker randomness
+        });
+        chosen = positions[0];
+      }
+
+      // place the word and increment direction usage
+      placeWord(word, chosen.x, chosen.y, chosen.dx, chosen.dy);
+      directionUsage[chosen.dirIdx]++;
     }
 
-    attempts++;
-    if (!failed || attempts >= maxAttempts) {
+    attempt++;
+    if (!failed) {
+      // fill remaining empty tiles with random letters
       tiles.forEach(t => {
         if (!t.textContent) t.textContent = String.fromCharCode(65 + Math.floor(Math.random() * 26));
       });
-      break;
+      return; // success
     }
+    // otherwise retry
   }
+
+  // If all attempts failed, fallback: fill random letters to avoid empty grid
+  console.warn("placeWords: failed to place all words after several attempts");
+  tiles.forEach(t => {
+    if (!t.textContent) t.textContent = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+  });
 }
 
 // --- Affichage de la liste ---
@@ -295,9 +336,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const popupClose = document.getElementById("popup-close");
   if (popupClose) {
     popupClose.addEventListener("click", () => {
-      window.location.href = "about:blank";
-      const popup = document.getElementById("game-over-popup");
-      popup.classList.add("hidden");
+      window.location.href = "finish.html";
     });
   }
 });

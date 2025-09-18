@@ -20,7 +20,6 @@ let board = [];
 
 const grid = document.getElementById('grid');
 const submitBtn = document.getElementById('submit');
-const resetBtn = document.getElementById('reset');
 const messageEl = document.getElementById('msg');
 
 /* --- Scoring & stats --- */
@@ -336,18 +335,6 @@ function showMessage(text, isError = false) {
   messageTimeout = setTimeout(() => { messageEl.textContent = ''; }, 3000);
 }
 
-/* -------------------------- RESET UI -------------------------- */
-function resetBoardUI() {
-  clearTiles();
-  board = Array.from({ length: MAX_ROWS }, () => Array(wordLen).fill(''));
-  currentRow = 0;
-  currentCol = 0;
-  triesCount = 0;
-  matchesCount = 0;
-  flipsCount = 0;
-  updateCaret();
-}
-
 /* -------------------------- EVENTS -------------------------- */
 document.addEventListener('keydown', e => {
   if (currentRow >= MAX_ROWS && e.key !== 'r') return;
@@ -365,12 +352,10 @@ document.addEventListener('paste', e => {
 });
 
 POPUP_CLOSE.addEventListener('click', () => {
-  POPUP.classList.add('hidden');
-  resetSecretAndState();
+  window.location.href = "finish.html";
 });
 
 submitBtn.addEventListener('click', submitGuess);
-resetBtn.addEventListener('click', () => resetSecretAndState());
 window.addEventListener('resize', () => adjustTileSize(wordLen));
 
 /* -------------------------- INIT -------------------------- */
