@@ -4,6 +4,12 @@
 // If the last row has any non-empty input, a confirmation modal appears before removal.
 // Save uploads all rows to Supabase: update existing weeks, insert new ones.
 
+if(localStorage.getItem("mdpOk") !== "true"){
+  alert("Accès interdit : mot de passe requis");
+  window.location.href = "index.html"; // redirection
+  throw new Error("Accès interdit"); // stoppe le script
+}
+
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
 // ---------- CONFIG - remplace par tes infos ----------
