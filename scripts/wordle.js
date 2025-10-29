@@ -280,15 +280,6 @@ function submitGuess() {
 }
 
 /* -------------------------- SCORE / POPUP -------------------------- */
-function calculateScore() {
-  const efficiency = triesCount > 0 ? matchesCount / triesCount : 0;
-  const minFlips = matchesCount * 2;
-  const speedBonus = Math.max(0, minFlips / Math.max(1, flipsCount));
-  const efficiencyPart = efficiency * 800;
-  const speedPart = speedBonus * 200;
-  return Math.round(efficiencyPart + speedPart);
-}
-
 function showGameOver() {
   const maxScore = wordLen * 100;           // score max proportionnel à la longueur
   const idealTries = wordLen + 1;           // nombre de tentatives idéales

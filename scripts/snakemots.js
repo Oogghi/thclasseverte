@@ -1,3 +1,44 @@
+// ---- SUPABASE WORD LOADER ----
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+// ---- SUPABASE ----
+const SUPABASE_URL = "https://rwloeubpmlnrycyzhzuo.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3bG9ldWJwbWxucnljeXpoenVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc4NDc0NjgsImV4cCI6MjA3MzQyMzQ2OH0.D9xpmy3K8m44O24MvGZYB-CqwX3MtG2ccsf2YpalxlI";
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let words = [];
+
+// ---- LOAD WORDS FROM SUPABASE ----
+async function loadWords() {
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const cases = parseInt(urlParams.get("cases") || "1");
+    const weekIndex = Math.floor((cases - 1) / 4) + 1;
+
+    const { data, error } = await supabase
+      .from("weeks")
+      .select("boxes")
+      .eq("position", weekIndex)
+      .single();
+
+    if (error) throw error;
+
+    words = data.boxes.flatMap(b => b.words);
+    console.log("✅ Words loaded:", words);
+  } catch (err) {
+    console.error("⚠️ Error loading from Supabase:", err);
+    words = [
+      'pomme','table','chien','fleur','voiture','maison',
+      'arbre','ordinateur','stylo','livre','soleil','lune',
+      'voile','bateau','plage','montagne'
+    ];
+  }
+}
+
+// ---- INIT WORDS FIRST ----
+await loadWords();
+
 // scripts/snake.js
 // Smooth responsive Snake, larger visual tile size, centered -, configurable grid colors.
 
@@ -24,6 +65,7 @@
   let scoreEl = null;
 
   const gameOverPopup = qs('#game-over-popup');
+  const POPUP_CLOSE = document.getElementById('popup-close');
   const finalScoreEl = qs('#final-score');
   const popupRestart = qs('#popup-restart');
 
@@ -78,9 +120,17 @@
   // --- Game state ---
   let snake;
   let apple;
-  let speedTilesPerSec = 7;
+
+  // --- Word Game Additions ---
+  let currentWordIndex = 0;
+  let currentWord = '';
+  let letters = []; // active letter positions + chars
+  let nextLetterIndex = 0;
+  const wordDisplay = qs('#word-display');
+
+  let speedTilesPerSec = 5;
   const speedIncreasePerApple = 0.35;
-  const maxSpeed = 22;
+  const maxSpeed = 12;
   let moveInterval = 1 / speedTilesPerSec;
   let lastMoveTime = 0;
   let interpolation = 0;
@@ -105,12 +155,6 @@
   let queuedDir = null;
 
   window.addEventListener('keydown', (e) => {
-    if (!gameRunning) {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd', ' '].includes(e.key)) {
-        startNewGame();
-        e.preventDefault();
-      }
-    }
     if (e.key === 'Escape') { togglePause(); return; }
     if (['ArrowUp', 'w', 'W'].includes(e.key)) trySetDir(Dir.UP);
     if (['ArrowDown', 's', 'S'].includes(e.key)) trySetDir(Dir.DOWN);
@@ -168,16 +212,39 @@
     queuedDir = null;
   }
 
-  function spawnApple() {
-    const occupied = new Set(snake.cells.map(c => `${c.x},${c.y}`));
-    let attempts = 0;
-    while (attempts < 1000) {
-      const x = randInt(1, cols - 2);
-      const y = randInt(1, rows - 2);
-      if (!occupied.has(`${x},${y}`)) { apple = { x, y }; return; }
-      attempts++;
+  function startWord() {
+    if (currentWordIndex >= words.length) {
+      console.log("🎉 All words completed!");
+      handleDeath();
+      return;
     }
-    apple = { x: 1, y: 1 };
+    currentWord = words[currentWordIndex];
+    nextLetterIndex = 0;
+    letters = [];
+
+    // Spawn each letter at random free cell
+    const occupied = new Set(snake.cells.map(c => `${c.x},${c.y}`));
+    for (let i = 0; i < currentWord.length; i++) {
+      let pos;
+      let attempts = 0;
+      do {
+        const x = randInt(1, cols - 2);
+        const y = randInt(1, rows - 2);
+        pos = { x, y };
+        attempts++;
+      } while (occupied.has(`${pos.x},${pos.y}`) && attempts < 1000);
+      occupied.add(`${pos.x},${pos.y}`);
+      letters.push({ ...pos, char: currentWord[i].toUpperCase() });
+    }
+
+    // Show current target word
+    if (wordDisplay) {
+      const collected = currentWord.slice(0, nextLetterIndex);
+      const remaining = currentWord.slice(nextLetterIndex);
+      wordDisplay.innerHTML = `<span style="color:#006600">${collected}</span>${remaining}`;
+    }
+
+    console.log("🔤 New word:", currentWord, letters);
   }
 
   function gridToPixel(cell) {
@@ -205,29 +272,76 @@
 
     snake.cells.unshift(nh);
 
-    if (nh.x === apple.x && nh.y === apple.y) {
-      score++;
-      snake.lengthTiles++;
-      speedTilesPerSec = clamp(speedTilesPerSec + speedIncreasePerApple, 3, maxSpeed);
-      moveInterval = 1 / speedTilesPerSec;
-      spawnApple();
+    // --- Check letter collision ---
+    const idx = letters.findIndex(l => l.x === nh.x && l.y === nh.y);
+    if (idx !== -1) {
+      const letter = letters[idx];
+      const expected = currentWord[nextLetterIndex].toUpperCase();
+      if (letter.char === expected) {
+        // ✅ Correct letter
+        letters.splice(idx, 1);
+        nextLetterIndex++;
+        score++;
+        snake.lengthTiles++;
+
+        // Update display
+        if (wordDisplay) {
+          const collected = currentWord.slice(0, nextLetterIndex);
+          const remaining = currentWord.slice(nextLetterIndex);
+          wordDisplay.innerHTML = `<span style="color:#90ee90">${collected}</span>${remaining}`;
+        }
+
+        // If finished the word
+        if (nextLetterIndex >= currentWord.length) {
+          currentWordIndex++;
+          const wordLengthFactor = Math.min(currentWord.length / 8, 1);
+          speedTilesPerSec = clamp(speedTilesPerSec + 0.15 + 0.1 * wordLengthFactor, 3, maxSpeed);
+          moveInterval = 1 / speedTilesPerSec;
+          startWord();
+        }
+      } else {
+        return handleDeath();
+      }
     }
 
     while (snake.cells.length > snake.lengthTiles) snake.cells.pop();
     return true;
   }
 
+  function drawLetters() {
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = `${tile * 0.7}px monospace`;
+    for (const l of letters) {
+      const { px, py } = gridToPixel(l);
+      ctx.fillStyle = '#90ee90';
+      ctx.beginPath();
+      ctx.arc(px, py, tile * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#004400';
+      ctx.fillText(l.char, px, py + 2);
+    }
+    ctx.restore();
+  }
+
   function handleDeath() {
     gameRunning = false;
     setPaused(false);
+
+    // Reset word index to start from the first word
+    currentWordIndex = 0;
+
     if (gameOverPopup) {
       if (finalScoreEl) finalScoreEl.textContent = `Score: ${score}`;
       gameOverPopup.classList.remove('hidden');
     }
+
     if (score > highscore) {
       highscore = score;
       try { localStorage.setItem('snake_highscore', String(highscore)); } catch (e) {}
     }
+
     return false;
   }
 
@@ -243,8 +357,8 @@
   function startNewGame() {
     resizeCanvas();
     spawnSnake();
-    spawnApple();
-    speedTilesPerSec = 7;
+    startWord();
+    speedTilesPerSec = 6;
     moveInterval = 1 / speedTilesPerSec;
     lastMoveTime = performance.now() / 1000;
     interpolation = 0;
@@ -314,30 +428,6 @@
     ctx.restore();
   }
 
-  function drawApple(cell) {
-    const { px, py } = gridToPixel(cell);
-    const radius = tile * 0.38;
-    const g = ctx.createRadialGradient(px - radius * 0.3, py - radius * 0.4, radius * 0.1, px, py, radius);
-    g.addColorStop(0, '#ff6b6b');
-    g.addColorStop(1, '#d94a4a');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(px, py, radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.45)';
-    ctx.beginPath();
-    ctx.ellipse(px - radius * 0.25, py - radius * 0.35, radius * 0.28, radius * 0.16, -0.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.save();
-    ctx.translate(px + radius * 0.25, py - radius * 0.75);
-    ctx.rotate(-0.4);
-    ctx.fillStyle = '#2d7a2d';
-    ctx.beginPath();
-    ctx.ellipse(0, 0, radius * 0.25, radius * 0.12, 0.6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-
   function drawSnakeInterpolated() {
     if (!snake || snake.cells.length === 0) return;
     const pix = snake.cells.map(gridToPixel);
@@ -389,7 +479,7 @@
 
   function draw() {
     drawGridBackground();
-    if (apple) drawApple(apple);
+    drawLetters();
     drawSnakeInterpolated();
   }
 
@@ -408,4 +498,8 @@
   };
 
   init();
+
+  POPUP_CLOSE.addEventListener('click', () => {
+    window.location.href = "finish.html";
+  });
 })();
