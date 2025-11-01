@@ -15,13 +15,41 @@
     font-family:monospace; z-index:5;
   "></div>
 
+  <!-- Top-right HUD (words counter + lives) -->
+  <div id="hud" style="
+    position:fixed; top:10px; right:10px; z-index:6;
+    font-family:monospace; text-align:right;
+  ">
+    <div id="words-counter" style="font-weight:bold; font-size:1rem; color:#003300;">Mots : 0/0</div>
+    <div id="lives-counter" style="font-weight:bold; font-size:1rem; color:#aa0000;">Vies : 3</div>
+  </div>
+
   <canvas id="game"></canvas>
 
+  <!-- Countdown overlay -->
+  <div id="countdown-overlay" style="
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    pointer-events:none; z-index:10; font-family:monospace;
+  " class="hidden">
+    <div id="countdown-box" style="
+      background: rgba(0,0,0,0.6); color: #fff; padding:20px 30px; border-radius:8px; text-align:center;
+    ">
+      <div id="countdown-text" style="font-size:1.25rem; margin-bottom:8px;"></div>
+      <div id="countdown-number" style="font-size:4rem; font-weight:bold;"></div>
+    </div>
+  </div>
+
   <!-- pop-up game over -->
-  <div id="game-over-popup" class="hidden">
-    <div id="game-over-content">
+  <div id="game-over-popup" class="hidden" style="
+     position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:11;
+     background: rgba(0,0,0,0.5);
+  ">
+    <div id="game-over-content" style="background:#fff; padding:20px; border-radius:8px; text-align:center; min-width:200px;">
       <h1 id="final-score">Score: 0</h1>
-      <button id="popup-close">Fermer</button>
+      <div style="margin-top:12px;">
+        <button id="popup-close" style="margin-right:8px;">Fermer</button>
+        <button id="popup-restart">Rejouer</button>
+      </div>
     </div>
   </div>
 

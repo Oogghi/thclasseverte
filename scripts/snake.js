@@ -78,9 +78,9 @@
   // --- Game state ---
   let snake;
   let apple;
-  let speedTilesPerSec = 7;
+  let speedTilesPerSec = 4;
   const speedIncreasePerApple = 0.35;
-  const maxSpeed = 22;
+  const maxSpeed = 16;
   let moveInterval = 1 / speedTilesPerSec;
   let lastMoveTime = 0;
   let interpolation = 0;
@@ -244,7 +244,7 @@
     resizeCanvas();
     spawnSnake();
     spawnApple();
-    speedTilesPerSec = 7;
+    speedTilesPerSec = 5.5;
     moveInterval = 1 / speedTilesPerSec;
     lastMoveTime = performance.now() / 1000;
     interpolation = 0;

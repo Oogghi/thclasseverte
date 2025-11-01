@@ -3,13 +3,11 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 
 // ---- SUPABASE ----
 const SUPABASE_URL = "https://rwloeubpmlnrycyzhzuo.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3bG9ldWJwbWxucnljeXpoenVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc4NDc0NjgsImV4cCI6MjA3MzQyMzQ2OH0.D9xpmy3K8m44O24MvGZYB-CqwX3MtG2ccsf2YpalxlI";
-
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3bG9ldWJwbWxucnljeXpoenVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc4NDc0NjgsImV4cCI6MjA3MzQyMzQ2OH0.D9xpmy3K8m44O24MvGZYB-CqwX3MtG2ccsf2YpalxlI"; // keep your real key
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let words = [];
 
-// ---- LOAD WORDS FROM SUPABASE ----
 async function loadWords() {
   try {
     const urlParams = new URLSearchParams(window.location.search);
@@ -36,11 +34,7 @@ async function loadWords() {
   }
 }
 
-// ---- INIT WORDS FIRST ----
 await loadWords();
-
-// scripts/snake.js
-// Smooth responsive Snake, larger visual tile size, centered -, configurable grid colors.
 
 (() => {
   'use strict';
@@ -50,7 +44,7 @@ await loadWords();
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-  // --- Elements & UI auto-creation (no UI) ---
+  // --- Elements ---
   const canvas = qs('#game') || (function () {
     const c = document.createElement('canvas');
     c.id = 'game';
@@ -58,20 +52,44 @@ await loadWords();
     return c;
   })();
 
-  // Disable on-screen UI (no score or restart button)
-  const SHOW_UI = false;
-  let ui = null;
-  let restartBtn = null;
-  let scoreEl = null;
-
+  const wordDisplay = qs('#word-display');
+  const wordsCounter = qs('#words-counter');
+  const livesCounter = qs('#lives-counter');
   const gameOverPopup = qs('#game-over-popup');
-  const POPUP_CLOSE = document.getElementById('popup-close');
+  const POPUP_CLOSE = qs('#popup-close');
   const finalScoreEl = qs('#final-score');
   const popupRestart = qs('#popup-restart');
+  const countdownOverlay = qs('#countdown-overlay');
+  const countdownText = qs('#countdown-text');
+  const countdownNumber = qs('#countdown-number');
 
   const ctx = canvas.getContext('2d', { alpha: false });
 
-  // Read CSS variables for colors (fallbacks provided)
+  // Ensure popup & countdown are hidden initially (fixes "visible at start" bug)
+  function hideGameOverPopup() {
+    if (!gameOverPopup) return;
+    gameOverPopup.style.display = 'none';
+    gameOverPopup.classList.add('hidden');
+  }
+  function showGameOverPopup() {
+    if (!gameOverPopup) return;
+    gameOverPopup.style.display = 'flex';
+    gameOverPopup.classList.remove('hidden');
+  }
+  function hideCountdown() {
+    if (!countdownOverlay) return;
+    countdownOverlay.style.display = 'none';
+    countdownOverlay.classList.add('hidden');
+    countdownText.textContent = '';
+    countdownNumber.textContent = '';
+  }
+  function showCountdownOverlay() {
+    if (!countdownOverlay) return;
+    countdownOverlay.style.display = 'flex';
+    countdownOverlay.classList.remove('hidden');
+  }
+
+  // Read CSS variables
   const rootStyle = getComputedStyle(document.documentElement || document.body);
   const BG_COLOR = rootStyle.getPropertyValue('--bg').trim() || '#fbffd8';
   const GRID_COLOR = rootStyle.getPropertyValue('--grid-line').trim() || 'rgba(0,32,0,0.12)';
@@ -119,17 +137,13 @@ await loadWords();
 
   // --- Game state ---
   let snake;
-  let apple;
-
-  // --- Word Game Additions ---
+  let letters = [];
   let currentWordIndex = 0;
   let currentWord = '';
-  let letters = []; // active letter positions + chars
   let nextLetterIndex = 0;
-  const wordDisplay = qs('#word-display');
 
-  let speedTilesPerSec = 5;
-  const speedIncreasePerApple = 0.35;
+  const baseSpeed = 5.5;
+  let speedTilesPerSec = baseSpeed;
   const maxSpeed = 12;
   let moveInterval = 1 / speedTilesPerSec;
   let lastMoveTime = 0;
@@ -140,18 +154,17 @@ await loadWords();
   let score = 0;
   let highscore = parseInt(localStorage.getItem('snake_highscore') || '0', 10);
 
-  // --- Input ---
+  // Lives
+  let lives = 3;
+
+  // Input
   const Dir = {
     UP: { x: 0, y: -1 },
     DOWN: { x: 0, y: 1 },
     LEFT: { x: -1, y: 0 },
     RIGHT: { x: 1, y: 0 },
   };
-
-  function opposite(a, b) {
-    return a.x + b.x === 0 && a.y + b.y === 0;
-  }
-
+  function opposite(a, b) { return a.x + b.x === 0 && a.y + b.y === 0; }
   let queuedDir = null;
 
   window.addEventListener('keydown', (e) => {
@@ -161,22 +174,18 @@ await loadWords();
     if (['ArrowLeft', 'a', 'A'].includes(e.key)) trySetDir(Dir.LEFT);
     if (['ArrowRight', 'd', 'D'].includes(e.key)) trySetDir(Dir.RIGHT);
   });
-
   function trySetDir(d) {
     if (!snake.dir) { snake.dir = d; return; }
-    if (!opposite(snake.dir, d)) {
-      queuedDir = d;
-    }
+    if (!opposite(snake.dir, d)) queuedDir = d;
   }
 
-  // --- Touch swipe ---
+  // Touch
   let touchStart = null;
   window.addEventListener('touchstart', (e) => {
     if (!e.touches || !e.touches.length) return;
     const t = e.touches[0];
     touchStart = { x: t.clientX, y: t.clientY, time: performance.now() };
   }, { passive: true });
-
   window.addEventListener('touchend', (e) => {
     if (!touchStart) return;
     const t = e.changedTouches[0];
@@ -193,37 +202,65 @@ await loadWords();
   }, { passive: true });
 
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden && gameRunning && !gamePaused) {
-      setPaused(true);
-    }
+    if (document.hidden && gameRunning && !gamePaused) setPaused(true);
   });
 
-  // --- Game logic ---
+  // --- Snake spawn ---
   function spawnSnake() {
     const startX = Math.floor(cols / 2);
     const startY = Math.floor(rows / 2);
     const initLength = 5;
     const cells = [];
-    for (let i = 0; i < initLength; i++) {
-      cells.push({ x: startX - i, y: startY });
-    }
+    for (let i = 0; i < initLength; i++) cells.push({ x: startX - i, y: startY });
     snake = { cells, dir: Dir.RIGHT, lengthTiles: initLength };
     prevHead = { ...cells[0] };
     queuedDir = null;
   }
 
-  function startWord() {
-    if (currentWordIndex >= words.length) {
-      console.log("🎉 All words completed!");
-      handleDeath();
-      return;
-    }
+  // HUD
+  function updateHUD() {
+    if (wordsCounter) wordsCounter.textContent = `Mots : ${Math.min(currentWordIndex + 1, words.length)}/${words.length}`;
+    if (livesCounter) livesCounter.textContent = `Vies : ${lives}`;
+  }
+
+  // Countdown with message — returns promise
+  function showCountdownAndMessage(word) {
+    return new Promise((resolve) => {
+      if (!countdownOverlay || !countdownNumber || !countdownText) { resolve(); return; }
+      countdownText.textContent = `Tu dois reconstruire le mot : "${word}"`;
+      let n = 5;
+      countdownNumber.textContent = n;
+      showCountdownOverlay();
+      const interval = setInterval(() => {
+        n--;
+        if (n > 0) {
+          countdownNumber.textContent = n;
+        } else {
+          clearInterval(interval);
+          hideCountdown();
+          resolve();
+        }
+      }, 1000);
+    });
+  }
+
+  async function startWord() {
+    if (currentWordIndex >= words.length) { handleVictory(); return; }
     currentWord = words[currentWordIndex];
     nextLetterIndex = 0;
     letters = [];
 
-    // Spawn each letter at random free cell
+    updateHUD();
+
+    if (!snake || !snake.cells) spawnSnake();
+    const head = snake.cells[0];
+    const headNext = { x: head.x + (snake.dir?.x ?? 1), y: head.y + (snake.dir?.y ?? 0) };
+
     const occupied = new Set(snake.cells.map(c => `${c.x},${c.y}`));
+    if (headNext.x >= 0 && headNext.x < cols && headNext.y >= 0 && headNext.y < rows) {
+      occupied.add(`${headNext.x},${headNext.y}`);
+    }
+
     for (let i = 0; i < currentWord.length; i++) {
       let pos;
       let attempts = 0;
@@ -232,75 +269,87 @@ await loadWords();
         const y = randInt(1, rows - 2);
         pos = { x, y };
         attempts++;
-      } while (occupied.has(`${pos.x},${pos.y}`) && attempts < 1000);
+      } while (occupied.has(`${pos.x},${pos.y}`) && attempts < 2000);
+
+      if (attempts >= 2000) {
+        let found = false;
+        for (let yy = 1; yy < rows - 1 && !found; yy++) {
+          for (let xx = 1; xx < cols - 1 && !found; xx++) {
+            if (!occupied.has(`${xx},${yy}`)) { pos = { x: xx, y: yy }; found = true; }
+          }
+        }
+        if (!pos) { console.warn('Could not place all letters; board too full.'); break; }
+      }
+
       occupied.add(`${pos.x},${pos.y}`);
       letters.push({ ...pos, char: currentWord[i].toUpperCase() });
     }
 
-    // Show current target word
     if (wordDisplay) {
       const collected = currentWord.slice(0, nextLetterIndex);
       const remaining = currentWord.slice(nextLetterIndex);
       wordDisplay.innerHTML = `<span style="color:#006600">${collected}</span>${remaining}`;
     }
 
+    setPaused(true);
+    await showCountdownAndMessage(currentWord);
+
+    speedTilesPerSec = baseSpeed;
+    moveInterval = 1 / speedTilesPerSec;
+
+    spawnSnake();
+
+    setPaused(false);
+    lastMoveTime = performance.now() / 1000;
+
     console.log("🔤 New word:", currentWord, letters);
   }
 
   function gridToPixel(cell) {
-    return {
-      px: offsetX + (cell.x + 0.5) * tile,
-      py: offsetY + (cell.y + 0.5) * tile,
-    };
+    return { px: offsetX + (cell.x + 0.5) * tile, py: offsetY + (cell.y + 0.5) * tile };
   }
 
   function stepSnake() {
-    if (queuedDir) {
-      if (!opposite(snake.dir, queuedDir)) snake.dir = queuedDir;
-      queuedDir = null;
-    }
+    if (queuedDir) { if (!opposite(snake.dir, queuedDir)) snake.dir = queuedDir; queuedDir = null; }
     const head = snake.cells[0];
     const nh = { x: head.x + snake.dir.x, y: head.y + snake.dir.y };
 
     prevHead = { ...head };
     interpolation = 0;
 
-    if (nh.x < 0 || nh.x >= cols || nh.y < 0 || nh.y >= rows) return handleDeath();
+    if (nh.x < 0 || nh.x >= cols || nh.y < 0 || nh.y >= rows) return handleCollision();
 
     const occupied = new Set(snake.cells.map((c) => `${c.x},${c.y}`));
-    if (occupied.has(`${nh.x},${nh.y}`)) return handleDeath();
+    if (occupied.has(`${nh.x},${nh.y}`)) return handleCollision();
 
     snake.cells.unshift(nh);
 
-    // --- Check letter collision ---
     const idx = letters.findIndex(l => l.x === nh.x && l.y === nh.y);
     if (idx !== -1) {
       const letter = letters[idx];
       const expected = currentWord[nextLetterIndex].toUpperCase();
       if (letter.char === expected) {
-        // ✅ Correct letter
         letters.splice(idx, 1);
         nextLetterIndex++;
         score++;
         snake.lengthTiles++;
 
-        // Update display
         if (wordDisplay) {
           const collected = currentWord.slice(0, nextLetterIndex);
           const remaining = currentWord.slice(nextLetterIndex);
           wordDisplay.innerHTML = `<span style="color:#90ee90">${collected}</span>${remaining}`;
         }
 
-        // If finished the word
         if (nextLetterIndex >= currentWord.length) {
           currentWordIndex++;
-          const wordLengthFactor = Math.min(currentWord.length / 8, 1);
-          speedTilesPerSec = clamp(speedTilesPerSec + 0.15 + 0.1 * wordLengthFactor, 3, maxSpeed);
+          updateHUD();
+          spawnSnake();
+          speedTilesPerSec = baseSpeed;
           moveInterval = 1 / speedTilesPerSec;
           startWord();
         }
       } else {
-        return handleDeath();
+        return handleCollision();
       }
     }
 
@@ -325,27 +374,44 @@ await loadWords();
     ctx.restore();
   }
 
+  function handleCollision() {
+    if (lives > 1) {
+      lives--;
+      updateHUD();
+      spawnSnake();
+      speedTilesPerSec = baseSpeed;
+      moveInterval = 1 / speedTilesPerSec;
+      lastMoveTime = performance.now() / 1000;
+      setPaused(true);
+      setTimeout(async () => {
+        await showCountdownAndMessage(currentWord);
+        setPaused(false);
+        lastMoveTime = performance.now() / 1000;
+      }, 200);
+      return false;
+    } else {
+      lives = 0;
+      updateHUD();
+      return handleDeath();
+    }
+  }
+
   function handleDeath() {
     gameRunning = false;
     setPaused(false);
-
-    // Reset word index to start from the first word
-    currentWordIndex = 0;
-
-    if (gameOverPopup) {
-      if (finalScoreEl) finalScoreEl.textContent = `Score: ${score}`;
-      gameOverPopup.classList.remove('hidden');
-    }
-
-    if (score > highscore) {
-      highscore = score;
-      try { localStorage.setItem('snake_highscore', String(highscore)); } catch (e) {}
-    }
-
+    if (finalScoreEl) finalScoreEl.textContent = `Score: ${score}`;
+    showGameOverPopup();
+    if (score > highscore) { highscore = score; try { localStorage.setItem('snake_highscore', String(highscore)); } catch (e) {} }
     return false;
   }
 
-  // --- Pause ---
+  function handleVictory() {
+    gameRunning = false;
+    setPaused(false);
+    if (finalScoreEl) finalScoreEl.textContent = `Bravo ! Score: ${score}`;
+    showGameOverPopup();
+  }
+
   function setPaused(p) { gamePaused = p; }
   function togglePause() {
     if (!gameRunning) return;
@@ -353,29 +419,26 @@ await loadWords();
     if (!gamePaused) lastMoveTime = performance.now() / 1000;
   }
 
-  // --- Game loop ---
   function startNewGame() {
     resizeCanvas();
-    spawnSnake();
-    startWord();
-    speedTilesPerSec = 6;
-    moveInterval = 1 / speedTilesPerSec;
-    lastMoveTime = performance.now() / 1000;
-    interpolation = 0;
+    currentWordIndex = 0;
     score = 0;
+    lives = 3;
+    speedTilesPerSec = baseSpeed;
+    moveInterval = 1 / speedTilesPerSec;
+    spawnSnake();
+    updateHUD();
     gameRunning = true;
     gamePaused = false;
-    if (gameOverPopup) gameOverPopup.classList.add('hidden');
+    hideGameOverPopup();
+    startWord();
+    lastMoveTime = performance.now() / 1000;
+    requestAnimationFrame(update);
   }
 
   function update(timeMs) {
-    if (!gameRunning || gamePaused) {
-      draw();
-      requestAnimationFrame(update);
-      return;
-    }
+    if (!gameRunning || gamePaused) { draw(); requestAnimationFrame(update); return; }
     const t = timeMs / 1000;
-    const dt = Math.min(0.064, t - lastMoveTime);
     interpolation = (t - lastMoveTime) / moveInterval;
     if (interpolation >= 1) {
       const steps = Math.floor(interpolation);
@@ -390,7 +453,6 @@ await loadWords();
     requestAnimationFrame(update);
   }
 
-  // --- Rendering ---
   function drawGridBackground() {
     ctx.fillStyle = BG_COLOR;
     ctx.fillRect(0, 0, width, height);
@@ -483,23 +545,28 @@ await loadWords();
     drawSnakeInterpolated();
   }
 
+  // init
   function init() {
     resizeCanvas();
+    hideGameOverPopup();
+    hideCountdown();
+    updateHUD();
     startNewGame();
     requestAnimationFrame(update);
   }
 
-  window.snakeGame = {
-    start: startNewGame,
-    pause: () => setPaused(true),
-    resume: () => setPaused(false),
-    isRunning: () => gameRunning && !gamePaused,
-    getScore: () => score,
-  };
+  // popup handlers
+  POPUP_CLOSE.addEventListener('click', () => {
+    hideGameOverPopup();
+  });
+  popupRestart.addEventListener('click', () => {
+    hideGameOverPopup();
+    currentWordIndex = 0;
+    score = 0;
+    lives = 3;
+    updateHUD();
+    startNewGame();
+  });
 
   init();
-
-  POPUP_CLOSE.addEventListener('click', () => {
-    window.location.href = "finish.html";
-  });
 })();
