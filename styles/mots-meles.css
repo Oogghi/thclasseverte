@@ -80,7 +80,7 @@ h1 {
 }
 
 .wordlist::before {
-  content: "🔎 Mots à trouver";
+  content: "";
   display: block;
   font-weight: bold;
   font-size: 1.15rem;

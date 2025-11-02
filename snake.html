@@ -10,10 +10,30 @@
 <body>
   <canvas id="game"></canvas>
 
-  <!-- pop-up game over -->
+  <!-- Top-right HUD (words counter + lives) -->
+  <div id="hud" style="
+    position:fixed; top:10px; right:10px; z-index:6;
+    font-family:monospace; text-align:right;
+  ">
+    <div id="apple-counter" style="font-weight:bold; font-size:1rem; color:#003300;">Nombre de pommes obtenues : 0</div>
+  </div>
+
+  <!-- pop-up game over (centralisé) -->
   <div id="game-over-popup" class="hidden">
-    <div id="game-over-content">
-      <h1 id="final-score">Score: 0</h1>
+    <div id="game-over-content" role="dialog" aria-modal="true" padding:20px; border-radius:8px; text-align:center; min-width:260px; position:relative;">
+      <h1 id="final-score" style="margin:0 0 8px 0;">Score: 0</h1>
+
+      <div id="game-summary" style="margin-top:12px; font-size:0.95rem; color:#333;">
+        <!-- Le JS remplit ce bloc avec le récap -->
+      </div>
+
+      <div style="margin-top:12px;">
+        <button id="popup-restart" style="padding:8px 12px; cursor:pointer;">Rejouer</button>
+      </div>
+
+      <div style="margin-top:8px; font-size:0.9rem; color:#444;">
+        (Tu peux cliquer sur la petite croix noire pour quitter.)
+      </div>
     </div>
   </div>
 

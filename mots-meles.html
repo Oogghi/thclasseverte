@@ -11,7 +11,6 @@
 <div class="wrap">
   <h1 class="instructions">Retrouve 10 des 16 mots de la semaine !</h1>
   <div class="alert">
-    <span class="alert-icon">💡</span>
     <span class="alert-text">Pour que ce ne soit pas trop facile, les mots de la grille n'ont pas d'accents !</span>
   </div>
   <div class="game-area">
@@ -23,9 +22,11 @@
 
   <div id="game-over-popup" class="hidden" role="dialog" aria-modal="true" aria-labelledby="final-score">
     <div id="game-over-content">
-      <h1 id="final-score">Score: 0</h1>
+      <h1 id="final-score">Score : 0</h1>
       <div id="final-details" style="margin-bottom:20px; font-weight:600; color:var(--muted,#555);"></div>
-      <button id="popup-close">Fermer</button>
+      <div style="margin-top:8px; font-size:0.9rem; color:#444;">
+        (Tu peux cliquer sur la petite croix noire pour quitter.)
+      </div>
     </div>
   </div>
 

@@ -25,7 +25,8 @@
 
   const gameOverPopup = qs('#game-over-popup');
   const finalScoreEl = qs('#final-score');
-  const popupRestart = qs('#popup-restart');
+  const appleCounter = qs('#apple-counter');
+  const POPUP_RESTART = qs('#popup-restart');
 
   const ctx = canvas.getContext('2d', { alpha: false });
 
@@ -78,9 +79,9 @@
   // --- Game state ---
   let snake;
   let apple;
-  let speedTilesPerSec = 4;
-  const speedIncreasePerApple = 0.35;
-  const maxSpeed = 16;
+  let speedTilesPerSec = 5.5;
+  const speedIncreasePerApple = 0;
+  const maxSpeed = 5.5;
   let moveInterval = 1 / speedTilesPerSec;
   let lastMoveTime = 0;
   let interpolation = 0;
@@ -106,15 +107,14 @@
 
   window.addEventListener('keydown', (e) => {
     if (!gameRunning) {
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd', ' '].includes(e.key)) {
+      if (['Escape', ' '].includes(e.key)) {
         startNewGame();
-        e.preventDefault();
       }
     }
-    if (e.key === 'Escape') { togglePause(); return; }
-    if (['ArrowUp', 'w', 'W'].includes(e.key)) trySetDir(Dir.UP);
+    // if (e.key === ' ') { togglePause(); return; }
+    if (['ArrowUp', 'z', 'Z'].includes(e.key)) trySetDir(Dir.UP);
     if (['ArrowDown', 's', 'S'].includes(e.key)) trySetDir(Dir.DOWN);
-    if (['ArrowLeft', 'a', 'A'].includes(e.key)) trySetDir(Dir.LEFT);
+    if (['ArrowLeft', 'q', 'Q'].includes(e.key)) trySetDir(Dir.LEFT);
     if (['ArrowRight', 'd', 'D'].includes(e.key)) trySetDir(Dir.RIGHT);
   });
 
@@ -221,7 +221,7 @@
     gameRunning = false;
     setPaused(false);
     if (gameOverPopup) {
-      if (finalScoreEl) finalScoreEl.textContent = `Score: ${score}`;
+      if (finalScoreEl) finalScoreEl.textContent = `Nombre de pommes obtenues : ${score}`;
       gameOverPopup.classList.remove('hidden');
     }
     if (score > highscore) {
@@ -237,6 +237,10 @@
     if (!gameRunning) return;
     setPaused(!gamePaused);
     if (!gamePaused) lastMoveTime = performance.now() / 1000;
+  }
+
+  function updateHUD() {
+    if (appleCounter) appleCounter.textContent = `Nombre de pommes obtenues : ${score}`;
   }
 
   // --- Game loop ---
@@ -255,6 +259,8 @@
   }
 
   function update(timeMs) {
+    updateHUD();
+
     if (!gameRunning || gamePaused) {
       draw();
       requestAnimationFrame(update);
@@ -408,4 +414,9 @@
   };
 
   init();
+
+  POPUP_RESTART.addEventListener('click', () => {
+    gameOverPopup.classList.add('hidden');
+    startNewGame();
+  });
 })();

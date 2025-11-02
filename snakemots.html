@@ -20,8 +20,8 @@
     position:fixed; top:10px; right:10px; z-index:6;
     font-family:monospace; text-align:right;
   ">
-    <div id="words-counter" style="font-weight:bold; font-size:1rem; color:#003300;">Mots : 0/0</div>
-    <div id="lives-counter" style="font-weight:bold; font-size:1rem; color:#aa0000;">Vies : 3</div>
+    <div id="words-counter" style="font-weight:bold; font-size:1rem; color:#003300;">Nombre de mots réussis : 0/0</div>
+    <div id="lives-counter" style="font-weight:bold; font-size:1rem; color:#aa0000;">Nombre de vies : 3</div>
   </div>
 
   <canvas id="game"></canvas>
@@ -39,16 +39,24 @@
     </div>
   </div>
 
-  <!-- pop-up game over -->
+  <!-- pop-up game over (centralisé) -->
   <div id="game-over-popup" class="hidden" style="
-     position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:11;
-     background: rgba(0,0,0,0.5);
+    position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:11;
+    background: rgba(0,0,0,0.5);
   ">
-    <div id="game-over-content" style="background:#fff; padding:20px; border-radius:8px; text-align:center; min-width:200px;">
-      <h1 id="final-score">Score: 0</h1>
+    <div id="game-over-content" role="dialog" aria-modal="true" padding:20px; border-radius:8px; text-align:center; min-width:260px; position:relative;">
+      <h1 id="final-score" style="margin:0 0 8px 0;">Score: 0</h1>
+
+      <div id="game-summary" style="margin-top:12px; font-size:0.95rem; color:#333;">
+        <!-- Le JS remplit ce bloc avec le récap -->
+      </div>
+
       <div style="margin-top:12px;">
-        <button id="popup-close" style="margin-right:8px;">Fermer</button>
-        <button id="popup-restart">Rejouer</button>
+        <button id="popup-restart" style="padding:8px 12px; cursor:pointer;">Rejouer</button>
+      </div>
+
+      <div style="margin-top:8px; font-size:0.9rem; color:#444;">
+        (Tu peux cliquer sur la petite croix noire pour quitter.)
       </div>
     </div>
   </div>

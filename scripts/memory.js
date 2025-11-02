@@ -5,7 +5,7 @@ const MSG = document.getElementById('msg');
 const POPUP = document.getElementById('game-over-popup');
 const FINAL_SCORE_TITLE = document.getElementById('final-score');
 const FINAL_DETAILS = document.getElementById('final-details');
-const POPUP_CLOSE = document.getElementById('popup-close');
+//const POPUP_CLOSE = document.getElementById('popup-close');
 
 // ---- SUPABASE ----
 const SUPABASE_URL = "https://rwloeubpmlnrycyzhzuo.supabase.co";
@@ -79,7 +79,7 @@ function fitTextToTileSingleLine(backSpan, tileEl){
   // start font-size relative to tile size (max)
   let fs = Math.floor(tileHeight * 0.5); // initial guess: 50% of tile height
   const minFs = 10;
-  const maxFs = Math.max(12, Math.floor(tileHeight * 0.7));
+  const maxFs = 22;  // taille maximum (modifiable)
 
   fs = Math.min(maxFs, Math.max(minFs, fs));
 
@@ -226,7 +226,7 @@ function showGameOver(){
 
   // affiche la popup et focus sur le bouton
   POPUP.classList.remove('hidden');
-  POPUP_CLOSE.focus();
+  //POPUP_CLOSE.focus();
 }
 
 function hideGameOver(){
@@ -236,9 +236,9 @@ function hideGameOver(){
 // Attempt to close the tab when user clicks "Fermer".
 // Many browsers block window.close() unless the page was opened by script.
 // We'll try window.close(); if it does not close, fallback to navigate to about:blank and hide the popup.
-POPUP_CLOSE.addEventListener('click', () => {
+/* POPUP_CLOSE.addEventListener('click', () => {
   window.location.href = "finish.html";
-});
+});*/
 
 // clicking overlay outside content hides popup (keeps current tab open)
 POPUP.addEventListener('click', (e) => {

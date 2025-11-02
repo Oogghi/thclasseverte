@@ -13,7 +13,7 @@ let tiles = [];
 let selectedWords = [];
 let selection = [];
 let selecting = false;
-let selDirection = null; // direction en cours [dx, dy] ou null
+let selDirection = null;
 
 // Expose for debugging/testing
 window.selectedWords = selectedWords;
@@ -349,7 +349,7 @@ function checkWin() {
   });
   if (allFound) {
     secretSpan.textContent = "Bravo !";
-    showGameOverPopup(); // <-- show popup
+    showGameOverPopup();
   }
 }
 

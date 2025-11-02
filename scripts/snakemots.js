@@ -56,32 +56,77 @@ await loadWords();
   const wordsCounter = qs('#words-counter');
   const livesCounter = qs('#lives-counter');
   const gameOverPopup = qs('#game-over-popup');
-  const POPUP_CLOSE = qs('#popup-close');
   const finalScoreEl = qs('#final-score');
-  const popupRestart = qs('#popup-restart');
   const countdownOverlay = qs('#countdown-overlay');
   const countdownText = qs('#countdown-text');
   const countdownNumber = qs('#countdown-number');
 
   const ctx = canvas.getContext('2d', { alpha: false });
 
+  // --- PopupManager: centralise toute la logique de la pop-up de fin ---
+  class PopupManager {
+    constructor(rootSelector) {
+      this.root = qs(rootSelector);
+      if (!this.root) return;
+      this.content = qs('#game-over-content');
+      this.scoreEl = qs('#final-score');
+      this.summaryEl = qs('#game-summary');
+      this.restartBtn = qs('#popup-restart');
+      this.closeBtn = qs('#popup-close');
+
+      this._onRestart = null;
+
+      // close on cross
+      this.closeBtn?.addEventListener('click', () => this.hide());
+
+      // close when clicking outside content
+      this.root.addEventListener('click', (e) => {
+        if (e.target === this.root) this.hide();
+      });
+
+      // restart button behavior (calls provided callback if any)
+      this.restartBtn?.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (typeof this._onRestart === 'function') {
+          this._onRestart();
+        } else {
+          this.hide();
+        }
+      });
+    }
+
+    show({ title = '', scoreText = '', summaryHtml = '', onRestart = null } = {}) {
+      if (!this.root) return;
+      if (this.scoreEl) this.scoreEl.textContent = title || scoreText || this.scoreEl.textContent;
+      if (summaryHtml && this.summaryEl) this.summaryEl.innerHTML = summaryHtml;
+      this._onRestart = onRestart;
+      this.root.style.display = 'flex';
+      this.root.classList.remove('hidden');
+      // accessibility: focus restart button
+      if (this.restartBtn) this.restartBtn.focus();
+    }
+
+    hide() {
+      if (!this.root) return;
+      this.root.style.display = 'none';
+      this.root.classList.add('hidden');
+    }
+
+    setSummary(summaryHtml) {
+      if (this.summaryEl) this.summaryEl.innerHTML = summaryHtml;
+    }
+  }
+
+  // instantiate popup manager
+  const popupManager = new PopupManager('#game-over-popup');
+
   // Ensure popup & countdown are hidden initially (fixes "visible at start" bug)
-  function hideGameOverPopup() {
-    if (!gameOverPopup) return;
-    gameOverPopup.style.display = 'none';
-    gameOverPopup.classList.add('hidden');
-  }
-  function showGameOverPopup() {
-    if (!gameOverPopup) return;
-    gameOverPopup.style.display = 'flex';
-    gameOverPopup.classList.remove('hidden');
-  }
   function hideCountdown() {
     if (!countdownOverlay) return;
     countdownOverlay.style.display = 'none';
     countdownOverlay.classList.add('hidden');
-    countdownText.textContent = '';
-    countdownNumber.textContent = '';
+    if (countdownText) countdownText.textContent = '';
+    if (countdownNumber) countdownNumber.textContent = '';
   }
   function showCountdownOverlay() {
     if (!countdownOverlay) return;
@@ -206,53 +251,27 @@ await loadWords();
   });
 
   // --- Snake spawn ---
-  function spawnSnake() {
+  // spawnSnake accepte keepLength (false par défaut).
+  function spawnSnake(keepLength = false) {
     const startX = Math.floor(cols / 2);
     const startY = Math.floor(rows / 2);
     const initLength = 5;
     const cells = [];
     for (let i = 0; i < initLength; i++) cells.push({ x: startX - i, y: startY });
-    snake = { cells, dir: Dir.RIGHT, lengthTiles: initLength };
+
+    // Si on doit garder la longueur et qu'un snake existait, on reprend sa longueur
+    const lengthToUse = (keepLength && snake && snake.lengthTiles) ? snake.lengthTiles : initLength;
+
+    snake = { cells, dir: Dir.RIGHT, lengthTiles: lengthToUse };
     prevHead = { ...cells[0] };
     queuedDir = null;
   }
 
-  // HUD
-  function updateHUD() {
-    if (wordsCounter) wordsCounter.textContent = `Mots : ${Math.min(currentWordIndex + 1, words.length)}/${words.length}`;
-    if (livesCounter) livesCounter.textContent = `Vies : ${lives}`;
-  }
-
-  // Countdown with message — returns promise
-  function showCountdownAndMessage(word) {
-    return new Promise((resolve) => {
-      if (!countdownOverlay || !countdownNumber || !countdownText) { resolve(); return; }
-      countdownText.textContent = `Tu dois reconstruire le mot : "${word}"`;
-      let n = 5;
-      countdownNumber.textContent = n;
-      showCountdownOverlay();
-      const interval = setInterval(() => {
-        n--;
-        if (n > 0) {
-          countdownNumber.textContent = n;
-        } else {
-          clearInterval(interval);
-          hideCountdown();
-          resolve();
-        }
-      }, 1000);
-    });
-  }
-
-  async function startWord() {
-    if (currentWordIndex >= words.length) { handleVictory(); return; }
-    currentWord = words[currentWordIndex];
-    nextLetterIndex = 0;
+  // --- Place letters helper (extracted depuis startWord) ---
+  function placeLettersForCurrentWord() {
     letters = [];
+    if (!currentWord) return;
 
-    updateHUD();
-
-    if (!snake || !snake.cells) spawnSnake();
     const head = snake.cells[0];
     const headNext = { x: head.x + (snake.dir?.x ?? 1), y: head.y + (snake.dir?.y ?? 0) };
 
@@ -285,19 +304,61 @@ await loadWords();
       letters.push({ ...pos, char: currentWord[i].toUpperCase() });
     }
 
+    // update word display (collected = 0 at start of level)
     if (wordDisplay) {
       const collected = currentWord.slice(0, nextLetterIndex);
       const remaining = currentWord.slice(nextLetterIndex);
       wordDisplay.innerHTML = `<span style="color:#006600">${collected}</span>${remaining}`;
     }
+  }
+
+  function updateHUD() {
+    if (wordsCounter) wordsCounter.textContent = `Nombre de mots réussis : ${Math.min(currentWordIndex, words.length)}/${words.length}`;
+    if (livesCounter) livesCounter.textContent = `Nombre de vies : ${lives}`;
+  }
+
+  function showCountdownAndMessage(word) {
+    return new Promise((resolve) => {
+      if (!countdownOverlay || !countdownNumber || !countdownText) { resolve(); return; }
+      countdownText.textContent = `Tu dois reconstruire le mot : "${word}"`;
+      let n = 5;
+      countdownNumber.textContent = n;
+      showCountdownOverlay();
+      const interval = setInterval(() => {
+        n--;
+        if (n > 0) {
+          countdownNumber.textContent = n;
+        } else {
+          clearInterval(interval);
+          hideCountdown();
+          resolve();
+        }
+      }, 1000);
+    });
+  }
+
+  async function startWord() {
+    if (currentWordIndex >= words.length) { handleVictory(); return; }
+    currentWord = words[currentWordIndex];
+    nextLetterIndex = 0;
+    letters = [];
+
+    updateHUD();
+
+    if (!snake || !snake.cells) spawnSnake(false);
+
+    // place letters & show the countdown before starting:
+    placeLettersForCurrentWord();
 
     setPaused(true);
+
     await showCountdownAndMessage(currentWord);
 
     speedTilesPerSec = baseSpeed;
     moveInterval = 1 / speedTilesPerSec;
 
-    spawnSnake();
+    // reposition snake to center but keep current length (start of level)
+    spawnSnake(true);
 
     setPaused(false);
     lastMoveTime = performance.now() / 1000;
@@ -343,9 +404,8 @@ await loadWords();
         if (nextLetterIndex >= currentWord.length) {
           currentWordIndex++;
           updateHUD();
-          spawnSnake();
-          speedTilesPerSec = baseSpeed;
-          moveInterval = 1 / speedTilesPerSec;
+          // start next word (keep length)
+          spawnSnake(true);
           startWord();
         }
       } else {
@@ -374,17 +434,31 @@ await loadWords();
     ctx.restore();
   }
 
+  // Collision handler: conserve taille du serpent lors d'une mort non terminale,
+  // et recommencer le même niveau au début (reset lettres trouvées).
   function handleCollision() {
     if (lives > 1) {
       lives--;
       updateHUD();
-      spawnSnake();
-      speedTilesPerSec = baseSpeed;
-      moveInterval = 1 / speedTilesPerSec;
-      lastMoveTime = performance.now() / 1000;
+
+      // Reset progress for current word (recommence le niveau)
+      nextLetterIndex = 0;
+
+      // Reposition snake at center but keep its length (spawnSnake(true))
+      spawnSnake(true);
+
+      // Pause, show countdown, then place letters for the current word and resume
       setPaused(true);
       setTimeout(async () => {
+        placeLettersForCurrentWord();
         await showCountdownAndMessage(currentWord);
+        // place letters after reposition (occupied changed
+        // reset word display to show 0 letters collected
+        if (wordDisplay) {
+          const collected = currentWord.slice(0, nextLetterIndex);
+          const remaining = currentWord.slice(nextLetterIndex);
+          wordDisplay.innerHTML = `<span style="color:#006600">${collected}</span>${remaining}`;
+        }
         setPaused(false);
         lastMoveTime = performance.now() / 1000;
       }, 200);
@@ -400,7 +474,28 @@ await loadWords();
     gameRunning = false;
     setPaused(false);
     if (finalScoreEl) finalScoreEl.textContent = `Score: ${score}`;
-    showGameOverPopup();
+
+    const summaryHtml = `
+      <div>Nombre de mots trouvés : <strong>${Math.min(currentWordIndex, words.length)}</strong></div>
+      <div>Nombre de vies restantes : <strong>${lives}</strong></div>
+    `;
+
+    popupManager.setSummary(summaryHtml);
+
+    popupManager.show({
+      title: `Score: ${score}`,
+      scoreText: `Score: ${score}`,
+      summaryHtml,
+      onRestart: () => {
+        popupManager.hide();
+        currentWordIndex = 0;
+        score = 0;
+        lives = 3;
+        updateHUD();
+        startNewGame();
+      }
+    });
+
     if (score > highscore) { highscore = score; try { localStorage.setItem('snake_highscore', String(highscore)); } catch (e) {} }
     return false;
   }
@@ -409,7 +504,27 @@ await loadWords();
     gameRunning = false;
     setPaused(false);
     if (finalScoreEl) finalScoreEl.textContent = `Bravo ! Score: ${score}`;
-    showGameOverPopup();
+
+    const summaryHtml = `
+      <div>Nombre de mots trouvés : <strong>${Math.min(currentWordIndex, words.length)}</strong></div>
+      <div>Nombre de vies restantes : <strong>${lives}</strong></div>
+    `;
+
+    popupManager.setSummary(summaryHtml);
+
+    popupManager.show({
+      title: `Bravo ! Score: ${score}`,
+      scoreText: `Bravo ! Score: ${score}`,
+      summaryHtml,
+      onRestart: () => {
+        popupManager.hide();
+        currentWordIndex = 0;
+        score = 0;
+        lives = 3;
+        updateHUD();
+        startNewGame();
+      }
+    });
   }
 
   function setPaused(p) { gamePaused = p; }
@@ -426,11 +541,13 @@ await loadWords();
     lives = 3;
     speedTilesPerSec = baseSpeed;
     moveInterval = 1 / speedTilesPerSec;
-    spawnSnake();
+    // au lancement d'une nouvelle partie, on veut la longueur initiale
+    spawnSnake(false);
     updateHUD();
     gameRunning = true;
     gamePaused = false;
-    hideGameOverPopup();
+    // hide popup via manager
+    popupManager.hide();
     startWord();
     lastMoveTime = performance.now() / 1000;
     requestAnimationFrame(update);
@@ -548,25 +665,13 @@ await loadWords();
   // init
   function init() {
     resizeCanvas();
-    hideGameOverPopup();
+    // hide via popup manager
+    popupManager.hide();
     hideCountdown();
     updateHUD();
     startNewGame();
     requestAnimationFrame(update);
   }
-
-  // popup handlers
-  POPUP_CLOSE.addEventListener('click', () => {
-    hideGameOverPopup();
-  });
-  popupRestart.addEventListener('click', () => {
-    hideGameOverPopup();
-    currentWordIndex = 0;
-    score = 0;
-    lives = 3;
-    updateHUD();
-    startNewGame();
-  });
 
   init();
 })();

@@ -28,7 +28,7 @@ let matchesCount = 0;
 let flipsCount = 0;     
 
 const POPUP = document.getElementById('game-over-popup');
-const POPUP_CLOSE = document.getElementById('popup-close');
+const POPUP_RESTART = document.getElementById('popup-restart');
 const FINAL_SCORE_TITLE = document.getElementById('FINAL_SCORE_TITLE');
 const FINAL_DETAILS = document.getElementById('FINAL_DETAILS');
 
@@ -99,11 +99,15 @@ async function loadAnswersFromSupabase() {
 }
 
 async function initGame() {
+  triesCount = 0;     
+  matchesCount = 0;   
+  flipsCount = 0;    
+
   let dictWords = [];
   try {
     dictWords = await fetchFile(DICT_URL);
   } catch (err) {
-    console.warn('Failed to load dict file, using fallback', err);
+    alert('Préviens le maitre ! : ', err);
     dictWords = ['pomme','table','jouer','chien','aimer','fleur','ordinateur','smartphone','voiture','avion'].map(strip);
   }
   dictByLength.clear();
@@ -119,15 +123,26 @@ async function initGame() {
 
 /* -------------------------- SECRET MANAGEMENT -------------------------- */
 function pickRandomSecret() {
-  if (!answers.length) {
-    const fallback = Array.from(dictByLength.get(wordLen) || []);
-    secretWord = fallback[Math.floor(Math.random() * fallback.length)] || 'pomme';
-  } else {
-    secretWord = answers[Math.floor(Math.random() * answers.length)];
+  let pool = answers.length ? answers : Array.from(dictByLength.get(wordLen) || []);
+
+  if (!pool.length) {
+    alert("Prévenir le maitre !")
+    secretWord = 'pomme';
+    wordLen = 5;
+    return;
   }
-  secretWord = strip(secretWord);
-  wordLen = secretWord.length;
+
+  let word = strip(pool[Math.floor(Math.random() * pool.length)]);
+
+  while (word.length < 3 || word.includes('œ')) {
+    word = strip(pool[Math.floor(Math.random() * pool.length)]);
+  }
+
+  secretWord = word;
+  // console.log(secretWord);
+  wordLen = word.length;
 }
+
 
 function resetSecretAndState() {
   pickRandomSecret();
@@ -265,7 +280,6 @@ function submitGuess() {
   triesCount++;
   matchesCount += status.filter(s => s === 'correct').length;
 
-  // Win check
   if (status.every(s => s === 'correct')) {
     showGameOver();
     currentRow = MAX_ROWS;
@@ -281,20 +295,18 @@ function submitGuess() {
 
 /* -------------------------- SCORE / POPUP -------------------------- */
 function showGameOver() {
-  const maxScore = wordLen * 100;           // score max proportionnel à la longueur
-  const idealTries = wordLen + 1;           // nombre de tentatives idéales
+  const maxScore = wordLen * 100;
+  const idealTries = wordLen + 1;
   let rawScore = maxScore * (1 - (triesCount - 1) / idealTries);
 
-  // jamais négatif : minimum 10% du maxScore
   const score = Math.max(Math.round(rawScore), Math.round(maxScore * 0.1));
 
   FINAL_SCORE_TITLE.textContent = 'Score : ' + score;
 
-  // message encourageant selon performance
   let message = '';
   if (triesCount === 1) message = 'Incroyable ! Mot trouvé du premier coup ! 🎉';
   else if (triesCount <= Math.ceil(wordLen / 2)) message = 'Très bien joué ! 😊';
-  else if (triesCount <= wordLen) message = 'Super ! continue comme ça ! 👍';
+  else if (triesCount <= wordLen) message = 'Super ! Continue comme ça ! 👍';
   else message = 'Tu as trouvé ! 💪';
 
   FINAL_DETAILS.innerHTML =
@@ -302,7 +314,7 @@ function showGameOver() {
     `${message}`;
 
   POPUP.classList.remove('hidden');
-  POPUP_CLOSE.focus();
+  POPUP_RESTART.focus();
 }
 
 /* -------------------------- VISUAL HELPERS -------------------------- */
@@ -342,8 +354,9 @@ document.addEventListener('paste', e => {
   e.preventDefault();
 });
 
-POPUP_CLOSE.addEventListener('click', () => {
-  window.location.href = "finish.html";
+POPUP_RESTART.addEventListener('click', () => {
+  POPUP.classList.add('hidden');
+  initGame();
 });
 
 submitBtn.addEventListener('click', submitGuess);
