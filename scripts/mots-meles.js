@@ -320,7 +320,7 @@ function showGameOverPopup() {
   const finalDetails = document.getElementById("final-details");
 
   const score = calculateScore();
-  finalScore.textContent = `Score: ${score}`;
+  finalScore.textContent = `Score : ${score}`;
 
   const wordsFound = selectedWords.filter(w => {
     const li = document.getElementById("word-" + sanitizeId(w.normalized));
