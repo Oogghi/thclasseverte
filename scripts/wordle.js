@@ -94,7 +94,9 @@ async function loadAnswersFromSupabase() {
     if (!answers.length) throw new Error('Empty answer pool');
   } catch (err) {
     console.warn('Supabase fallback:', err);
-    answers = Array.from(dictByLength.get(wordLen) || []);
+    alert("Préviens le maitre si tu vois ceci !")
+    answers = ["Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur",  
+              "Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur"];
   }
 }
 

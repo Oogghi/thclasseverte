@@ -59,8 +59,9 @@ async function loadWords(){
     startGame();
   } catch(err) {
     console.error("Erreur chargement supabase", err);
-    words = ['pomme','table','chien','fleur','voiture','maison','arbre','ordinateur',
-             'stylo','livre','soleil','lune','voile','bateau','plage','montagne'];
+    alert("Préviens le maitre si tu vois ceci !")
+    words = ["Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur",  
+              "Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur"];
     startGame();
   }
 }

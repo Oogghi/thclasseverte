@@ -82,7 +82,9 @@ async function loadWordsFromSupabase() {
 
     console.log(`Loaded ${selectedWords.length} words from week position ${weekPosition}`);
   } catch (e) {
-    console.error("Erreur Supabase:", e);
+    alert("Préviens le maitre si tu vois ceci !")
+    words = ["Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur",  
+              "Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur", "Erreur"];
   }
 }
 

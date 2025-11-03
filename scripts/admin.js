@@ -190,7 +190,7 @@ async function loadAllWeeks() {
 
     if (error) {
       console.error('Erreur supabase fetch:', error);
-      alert('Erreur lors du chargement des semaines (check console)');
+      alert('ERREUR : Prévenir Raphaël (NE RAJOUTE PAS DE MOTS SINON ILS NE SERONT PAS SAUVEGARDÉ)');
       // still seed a default row
       if (!grid.children.length) seed(1);
       return;
@@ -228,7 +228,7 @@ async function loadAllWeeks() {
     updateRemoveState();
   } catch (err) {
     console.error('Erreur loadAllWeeks:', err);
-    alert('Erreur inconnue lors du chargement');
+    alert('ERREUR : Prévenir Raphaël (NE RAJOUTE PAS DE MOTS SINON ILS NE SERONT PAS SAUVEGARDÉ');
     if (!grid.children.length) seed(1);
   }
 }
@@ -288,8 +288,8 @@ async function saveAllRows() {
     // check for errors in results
     const errors = results.map(r => r.error).filter(e => e);
     if (errors.length) {
-      console.error('Errors saving:', errors);
-      alert('Quelques erreurs sont survenues lors de la sauvegarde (voir console).');
+      console.error('Erreur saveAllRows:', err);
+      alert('ERREUR : Prévenir Raphaël (NE FERME PAS LA PAGE SINON RIEN NE SERA SAUVEGARDÉ !!)');
     } else {
       alert('✅ Sauvegardé avec succès !');
       // reload to pick up inserted ids and current DB state
@@ -297,7 +297,7 @@ async function saveAllRows() {
     }
   } catch (err) {
     console.error('Erreur saveAllRows:', err);
-    alert('Erreur inconnue lors de la sauvegarde (voir console).');
+    alert('ERREUR : Prévenir Raphaël (NE FERME PAS LA PAGE SINON RIEN NE SERA SAUVEGARDÉ !!)');
   }
 }
 
