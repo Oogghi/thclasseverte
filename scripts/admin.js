@@ -282,21 +282,21 @@ async function saveAllRows() {
       ? supabase.from(WEEKS_TABLE).insert(toInsert)
       : Promise.resolve({ data: null, error: null });
 
-    // run all
     const results = await Promise.all([...updatePromises, insertPromise]);
 
     // check for errors in results
     const errors = results.map(r => r.error).filter(e => e);
-    if (errors.length) {
-      console.error('Erreur saveAllRows:', err);
+    
+    if (errors.length > 0) {
+      // ON CHANGE 'err' PAR 'errors' ICI :
+      console.error('Erreur saveAllRows (Supabase):', errors); 
       alert('ERREUR : Prévenir Raphaël (NE FERME PAS LA PAGE SINON RIEN NE SERA SAUVEGARDÉ !!)');
     } else {
       alert('✅ Sauvegardé avec succès !');
-      // reload to pick up inserted ids and current DB state
       await loadAllWeeks();
     }
-  } catch (err) {
-    console.error('Erreur saveAllRows:', err);
+  } catch (err) { // <--- Ici 'err' est bien défini par le catch
+    console.error('Erreur saveAllRows (Exception):', err);
     alert('ERREUR : Prévenir Raphaël (NE FERME PAS LA PAGE SINON RIEN NE SERA SAUVEGARDÉ !!)');
   }
 }
