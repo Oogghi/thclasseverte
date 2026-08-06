@@ -1,0 +1,125 @@
+/* styles/pacman.css - Neo-Brutalist Classic Pac-Man */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&display=swap');
+
+:root {
+  --bg: #fbffd8;
+  --text: #002000;
+  --border: 2.5px solid #1a1a1a;
+  --shadow: 4px 4px 0px #1a1a1a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100vw; height: 100vh; overflow: hidden; }
+
+body {
+  background: var(--bg);
+  font-family: 'Outfit', system-ui, sans-serif;
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.game-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: min(960px, 98vw);
+}
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0 4px;
+}
+
+.game-title {
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.hud-box {
+  background: #ffffff;
+  border: var(--border);
+  box-shadow: 3px 3px 0px #1a1a1a;
+  padding: 8px 18px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.board-frame {
+  width: 100%;
+  height: clamp(480px, 78vh, 760px);
+  background: #ffffff;
+  border: var(--border);
+  box-shadow: var(--shadow);
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+}
+
+canvas#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#game-over-popup {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 32, 0, 0.75);
+  backdrop-filter: blur(3px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+}
+#game-over-popup.hidden { display: none; }
+
+#game-over-content {
+  background: #ffffff;
+  padding: 28px 36px;
+  border-radius: 16px;
+  text-align: center;
+  box-shadow: 5px 5px 0px #1a1a1a;
+  border: var(--border);
+  max-width: 380px;
+  width: 90%;
+}
+
+#popup-restart {
+  padding: 10px 24px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  font-family: inherit;
+  border: var(--border);
+  border-radius: 10px;
+  background: #ffe4b3;
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: 3px 3px 0px #1a1a1a;
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+
+#popup-restart:hover {
+  background: #ffd77a;
+  transform: translate(-1px, -1px);
+}
+
+.heart {
+  display: inline-block;
+  font-size: 1.3rem;
+  margin: 0 1px;
+}
+.heart.full { color: #d32f2f; }
+.heart.empty { color: #cccccc; }

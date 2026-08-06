@@ -2,7 +2,7 @@
 // Each row: left line-number + 4 boxes. Each box contains 4 inputs.
 // Single add (+) and remove (-) button sits under the grid.
 // If the last row has any non-empty input, a confirmation modal appears before removal.
-// Save uploads all rows to Supabase: update existing weeks, insert new ones.
+// Save replaces the full weeks array via fetch_json.js.
 
 if(localStorage.getItem("mdpOk") !== "true"){
   alert("Accès interdit : mot de passe requis");
@@ -10,15 +10,7 @@ if(localStorage.getItem("mdpOk") !== "true"){
   throw new Error("Accès interdit"); // stoppe le script
 }
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-// ---------- CONFIG - remplace par tes infos ----------
-const SUPABASE_URL = 'https://rwloeubpmlnrycyzhzuo.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3bG9ldWJwbWxucnljeXpoenVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc4NDc0NjgsImV4cCI6MjA3MzQyMzQ2OH0.D9xpmy3K8m44O24MvGZYB-CqwX3MtG2ccsf2YpalxlI';
-const WEEKS_TABLE = 'weeks'; // nom de la table
-// ----------------------------------------------------
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+import { getAllWeeks, saveAllWeeks } from './fetch_json.js';
 
 const grid = document.getElementById('grid');
 const template = document.getElementById('row-template');
@@ -35,9 +27,7 @@ const modalCancel = document.getElementById('confirm-cancel');
 function createRow(week = null) {
   const node = document.importNode(template.content, true);
   const rowEl = node.querySelector('.row');
-  if (week && week.id) {
-    rowEl.dataset.weekId = week.id;
-    // optionally keep name/position in dataset
+  if (week) {
     if (week.position != null) rowEl.dataset.position = String(week.position);
     if (week.name) rowEl.dataset.name = week.name;
   }
@@ -178,42 +168,26 @@ removeBtn.addEventListener('keydown', function (ev) {
   }
 });
 
-// ---------------- Supabase integration ----------------
+// ---------------- fetch_json.js integration ----------------
 
-// Load all weeks from DB and render them (ordered by position)
+// Load all weeks and render them (ordered by position)
 async function loadAllWeeks() {
   try {
-    const { data, error } = await supabase
-      .from(WEEKS_TABLE)
-      .select('id, name, position, boxes')
-      .order('position', { ascending: true });
+    const data = await getAllWeeks();
 
-    if (error) {
-      console.error('Erreur supabase fetch:', error);
-      alert('ERREUR : Prévenir Raphaël (NE RAJOUTE PAS DE MOTS SINON ILS NE SERONT PAS SAUVEGARDÉ)');
-      // still seed a default row
-      if (!grid.children.length) seed(1);
-      return;
-    }
-
-    // if no data, seed one empty row
     if (!data || data.length === 0) {
       seed(1);
       return;
     }
 
-    // clear grid
     grid.innerHTML = '';
 
-    // for each week, create a row and fill inputs
     data.forEach((week) => {
       const row = createRow(week);
       grid.appendChild(row);
 
-      // fill inputs: boxes is expected to be array of 4 {box, words}
       if (Array.isArray(week.boxes)) {
         const boxEls = row.querySelectorAll('.box');
-        // for each box element, fill its 4 inputs
         week.boxes.forEach((boxData, boxIndex) => {
           const boxEl = boxEls[boxIndex];
           if (!boxEl) return;
@@ -228,7 +202,7 @@ async function loadAllWeeks() {
     updateRemoveState();
   } catch (err) {
     console.error('Erreur loadAllWeeks:', err);
-    alert('ERREUR : Prévenir Raphaël (NE RAJOUTE PAS DE MOTS SINON ILS NE SERONT PAS SAUVEGARDÉ');
+    alert('ERREUR : Prévenir Raphaël (NE RAJOUTE PAS DE MOTS SINON ILS NE SERONT PAS SAUVEGARDÉ)');
     if (!grid.children.length) seed(1);
   }
 }
@@ -245,7 +219,7 @@ function buildBoxesFromRow(rowEl) {
   return boxes;
 }
 
-// Save all rows: updates existing weeks and inserts new ones
+// Save all rows: full replace of the weeks array
 async function saveAllRows() {
   const rows = Array.from(grid.querySelectorAll('.row'));
   if (!rows.length) {
@@ -253,50 +227,18 @@ async function saveAllRows() {
     return;
   }
 
-  // prepare arrays
-  const toUpdate = []; // { id, boxes, position, name }
-  const toInsert = []; // { name, position, boxes }
-
-  rows.forEach((row, idx) => {
-    const position = idx + 1;
-    const boxes = buildBoxesFromRow(row);
-    const name = row.dataset.name ?? `Week ${position}`;
-
-    if (row.dataset.weekId) {
-      toUpdate.push({ id: row.dataset.weekId, boxes, position, name });
-    } else {
-      toInsert.push({ name, position, boxes });
-    }
-  });
+  const weeks = rows.map((row, idx) => ({
+    position: idx + 1,
+    name:     row.dataset.name ?? `Week ${idx + 1}`,
+    boxes:    buildBoxesFromRow(row),
+  }));
 
   try {
-    // perform updates (parallel)
-    const updatePromises = toUpdate.map(u =>
-      supabase
-        .from(WEEKS_TABLE)
-        .update({ boxes: u.boxes, position: u.position, name: u.name })
-        .eq('id', u.id)
-    );
-
-    const insertPromise = toInsert.length
-      ? supabase.from(WEEKS_TABLE).insert(toInsert)
-      : Promise.resolve({ data: null, error: null });
-
-    const results = await Promise.all([...updatePromises, insertPromise]);
-
-    // check for errors in results
-    const errors = results.map(r => r.error).filter(e => e);
-    
-    if (errors.length > 0) {
-      // ON CHANGE 'err' PAR 'errors' ICI :
-      console.error('Erreur saveAllRows (Supabase):', errors); 
-      alert('ERREUR : Prévenir Raphaël (NE FERME PAS LA PAGE SINON RIEN NE SERA SAUVEGARDÉ !!)');
-    } else {
-      alert('✅ Sauvegardé avec succès !');
-      await loadAllWeeks();
-    }
-  } catch (err) { // <--- Ici 'err' est bien défini par le catch
-    console.error('Erreur saveAllRows (Exception):', err);
+    await saveAllWeeks(weeks);
+    alert('✅ Sauvegardé avec succès !');
+    await loadAllWeeks();
+  } catch (err) {
+    console.error('Erreur saveAllRows:', err);
     alert('ERREUR : Prévenir Raphaël (NE FERME PAS LA PAGE SINON RIEN NE SERA SAUVEGARDÉ !!)');
   }
 }
@@ -312,12 +254,3 @@ saveBtn.addEventListener('click', async () => {
 
 // initialize: load data
 loadAllWeeks();
-
-// expose helpers for debug
-window._adminGrid = {
-  refreshNumbers,
-  createRow,
-  gridElement: grid,
-  loadAllWeeks,
-  saveAllRows
-};

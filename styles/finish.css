@@ -1,33 +1,232 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@600;800;900&display=swap');
+
+:root {
+  --bg: #fbffd8;
+  --text: #002000;
+  --card-bg: #ffffff;
+  --border: #1a1a1a;
+  --shadow: 5px 5px 0px #1a1a1a;
+  --accent-gold: #ffcf25;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
-  font-family: Arial, sans-serif;
+  font-family: 'Outfit', system-ui, sans-serif;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: #fbffd8;
-  color: #002000;
+  background: var(--bg);
+  color: var(--text);
   margin: 0;
   padding: 20px;
+  overflow: hidden;
+  position: relative;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* Main Card */
 .wrap {
   text-align: center;
+  background: var(--card-bg);
+  border: 3px solid var(--border);
+  box-shadow: var(--shadow);
+  border-radius: 24px;
+  padding: 40px 32px;
+  max-width: 480px;
+  width: 90%;
+  position: relative;
+  z-index: 10;
+  animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.85) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.trophy-container {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 16px;
 }
 
 .emoji {
-  font-size: 100px; /* gros emoji */
-  margin-bottom: 20px;
+  font-size: 85px;
+  display: inline-block;
+  animation: bounce 2.5s infinite ease-in-out;
 }
 
-.message {
-  font-size: 36px;
-  margin-bottom: 10px;
-  color: #002000;
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }
 
-.tip {
-  font-size: 18px;
-  color: #002000;
-  opacity: 0.7; /* style tip léger */
+.sparkle-badge {
+  position: absolute;
+  top: -8px;
+  right: -24px;
+  background: var(--accent-gold);
+  border: 2px solid var(--border);
+  box-shadow: 2px 2px 0px var(--border);
+  font-size: 13px;
+  font-weight: 900;
+  padding: 4px 10px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  overflow: hidden;
+  animation: badgePopPulse 2.2s infinite cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: transform;
+}
+
+.sparkle-badge::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -150%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    60deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.7) 50%,
+    transparent 70%
+  );
+  transform: rotate(25deg);
+  animation: badgeShimmer 3s infinite ease-in-out;
+}
+
+@keyframes badgePopPulse {
+  0%, 100% {
+    transform: rotate(5deg) scale(1);
+    box-shadow: 2px 2px 0px var(--border);
+  }
+  50% {
+    transform: rotate(-4deg) scale(1.14);
+    box-shadow: 4px 4px 0px var(--border);
+  }
+}
+
+@keyframes badgeShimmer {
+  0%, 20% {
+    left: -150%;
+  }
+  70%, 100% {
+    left: 150%;
+  }
+}
+
+.victory-title {
+  font-size: 2.1rem;
+  font-weight: 900;
+  margin: 0 0 10px 0;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.subtitle {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #4a5568;
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+/* Stats / Badges Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.stat-item {
+  background: #f8fafc;
+  border: 2px solid var(--border);
+  box-shadow: 3px 3px 0px var(--border);
+  border-radius: 14px;
+  padding: 12px 10px;
+  text-align: center;
+}
+
+.stat-icon {
+  font-size: 24px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 2px;
+}
+
+.stat-value {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.tip-box {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #445544;
+  background: #f1f5f9;
+  border: 2px dashed #cbd5e1;
+  border-radius: 14px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+/* GPU-Accelerated Lightweight CSS Confetti */
+.confetti-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 99;
+  overflow: hidden;
+}
+
+.confetti {
+  position: absolute;
+  top: -20px;
+  width: 10px;
+  height: 14px;
+  border-radius: 2px;
+  opacity: 0.9;
+  will-change: transform;
+  animation: confettiFall var(--duration, 3s) cubic-bezier(0.25, 0.46, 0.45, 0.94) var(--delay, 0s) forwards;
+}
+
+@keyframes confettiFall {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  80% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate3d(var(--x-end, 50px), 105vh, 0) rotate(var(--rotation, 720deg));
+    opacity: 0;
+  }
 }

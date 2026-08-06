@@ -1,21 +1,22 @@
-/* Minimal black & white styling for the admin grid page (with left line indicators) */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&display=swap');
 
-:root{
+:root {
   --gap: 12px;
-  --box-radius: 8px;
-  --border-color: #000;
-  --btn-border: #d0d0d0;
-  --danger: #b33;
-  --line-width: 58px;
+  --box-radius: 12px;
+  --border: 2px solid #1a1a1a;
+  --shadow: 3px 3px 0px #1a1a1a;
+  --line-width: 54px;
 }
 
 * { box-sizing: border-box; }
+
 body {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  font-family: 'Outfit', system-ui, sans-serif;
   background: #fbffd8;
-  color: #000;
+  color: #002000;
   margin: 20px;
   line-height: 1.3;
+  -webkit-font-smoothing: antialiased;
 }
 
 .wrap {
@@ -25,55 +26,50 @@ body {
 
 h1 {
   margin: 0 0 8px 0;
-  font-size: 20px;
+  font-size: 2.2rem;
+  font-weight: 800;
 }
 
 .hint {
-  margin: 0 0 18px 0;
-  color: #222;
-  font-size: 14px;
+  margin: 0 0 20px 0;
+  color: #223322;
+  font-size: 1rem;
+  font-weight: 500;
 }
 
-/* Grid container holding rows */
 .grid {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--gap) * 1.1);
+  gap: var(--gap);
 }
 
-/* Row layout: left line number + row body */
 .row {
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  padding: 6px 4px;
+  padding: 4px 2px;
 }
 
-/* Left line-number indicator */
 .line-num {
   width: var(--line-width);
   min-width: var(--line-width);
   text-align: center;
-  font-size: 18px;
-  font-weight: 800;
-  color: #111;
-  background: #b1ffb7;
-  border: 1px solid #eee;
-  padding: 10px 8px;
-  border-radius: 8px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #000000;
+  background: #7ecb63;
+  border: var(--border);
+  box-shadow: 2px 2px 0px #1a1a1a;
+  padding: 8px;
+  border-radius: 10px;
   align-self: stretch;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
 }
 
-/* row body holds the boxes */
-.row-body {
-  flex: 1 1 auto;
-}
+.row-body { flex: 1 1 auto; }
 
-/* Boxes container holds 4 boxes in a row */
 .boxes {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -81,122 +77,129 @@ h1 {
   align-items: start;
 }
 
-/* Each box style */
 .box {
-  border: 2px solid var(--border-color);
+  border: var(--border);
+  box-shadow: var(--shadow);
   border-radius: var(--box-radius);
   padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  background: #fbffd8;
+  gap: 8px;
+  background: #ffffff;
   position: relative;
 }
 
-/* Number header inside box */
 .num {
   display: block;
   width: 100%;
   text-align: center;
-  font-size: 18px;
-  font-weight: 800;
-  color: #111;
-  background: #c3ffc8;
-  border: 1px solid #e6e6e6;
-  padding: 6px 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #000000;
+  background: #ffe4b3;
+  border: 1.5px solid #1a1a1a;
+  padding: 4px 0;
   border-radius: 8px;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
 }
 
-/* Container for the four inputs */
 .box-inputs {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-/* inputs style */
 .box-input {
   width: 100%;
-  padding: 8px;
-  border: 1px solid #bbb;
+  padding: 8px 10px;
+  border: 1.5px solid #1a1a1a;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  font-weight: 600;
   outline: none;
-  background: #e3e9b1;
+  background: #fafafa;
 }
 
 .box-input:focus {
-  border-color: #888;
-  box-shadow: 0 0 0 3px rgba(0,0,0,0.04);
+  background: #fffdf0;
+  border-color: #000000;
+  box-shadow: 1.5px 1.5px 0px #1a1a1a;
 }
 
-/* Single add/remove button area under the whole grid */
 .add-area {
-  margin-top: 16px;
+  margin-top: 20px;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
-/* Add and remove buttons */
 .add-btn, .remove-btn {
-  min-width: 52px;
-  height: 52px;
+  min-width: 50px;
+  height: 50px;
   border-radius: 12px;
-  border: 1px solid var(--btn-border);
-  background: linear-gradient(#f4f4f4, #efefef);
-  color: #333;
+  border: var(--border);
+  background: #ffe4b3;
+  color: #000000;
   font-weight: 700;
   font-size: 24px;
-  line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.03);
+  box-shadow: var(--shadow);
+  transition: transform .1s ease, box-shadow .1s ease, background .15s ease;
 }
 
 .add-btn:hover, .remove-btn:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 6px 14px rgba(0,0,0,0.06);
-  background: linear-gradient(#f8f8f8, #f2f2f2);
+  transform: translate(-1.5px, -1.5px);
+  box-shadow: 4.5px 4.5px 0px #1a1a1a;
+  background: #ffd77a;
 }
 
 .add-btn:active, .remove-btn:active {
-  transform: translateY(-1px) scale(.995);
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px #1a1a1a;
 }
 
-/* when remove is disabled */
 .remove-btn[disabled] {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
 }
 
-/* Buttons variants */
-.btn {
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid #bbb;
-  background: #fff;
-  cursor: pointer;
+.actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
 }
 
-.btn-danger {
-  border-color: rgba(179,51,51,0.9);
-  color: var(--danger);
+.save-btn {
+  padding: 12px 28px;
+  font-size: 1.1rem;
+  font-family: inherit;
   font-weight: 700;
+  background: #7ecb63;
+  color: #000000;
+  border: var(--border);
+  box-shadow: var(--shadow);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform .1s ease, box-shadow .1s ease, background .15s ease;
 }
 
-.btn-secondary {
-  border-color: #ccc;
+.save-btn:hover {
+  transform: translate(-1.5px, -1.5px);
+  box-shadow: 4.5px 4.5px 0px #1a1a1a;
+  background: #6ebd53;
 }
 
-/* Confirmation modal overlay */
+.save-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0px #1a1a1a;
+}
+
 .confirm-modal {
   display: none;
   position: fixed;
@@ -204,76 +207,54 @@ h1 {
   z-index: 1200;
   align-items: center;
   justify-content: center;
-  background: rgba(0,0,0,0.35);
+  background: rgba(0, 32, 0, 0.7);
+  backdrop-filter: blur(2px);
   padding: 20px;
 }
 
-.confirm-modal[aria-hidden="false"] {
-  display: flex;
-}
+.confirm-modal[aria-hidden="false"] { display: flex; }
 
-/* Modal panel */
 .confirm-panel {
-  background: #fff;
-  border-radius: 10px;
-  padding: 18px 20px;
-  max-width: 420px;
+  background: #ffffff;
+  border-radius: 16px;
+  border: var(--border);
+  box-shadow: 5px 5px 0px #1a1a1a;
+  padding: 24px;
+  max-width: 400px;
   width: 100%;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
   text-align: center;
 }
 
 .confirm-panel h2 {
-  margin: 0 0 8px 0;
-  font-size: 18px;
+  margin-top: 0;
+  font-size: 1.5rem;
 }
 
-.confirm-panel .confirm-text {
-  margin: 0 0 16px 0;
-  font-size: 14px;
-  color: #333;
-}
-
-.confirm-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-}
-
-/* Save button style */
-.actions {
-  margin-top: 12px;
-  display: flex;
-  justify-content: center;
-}
-.save-btn {
-  padding: 10px 18px;
-  font-size: 15px;
+.btn-danger {
+  background: #ff8888;
+  border: 1.5px solid #1a1a1a;
+  box-shadow: 2px 2px 0px #1a1a1a;
   font-weight: 700;
-  background: #000;
-  color: #fff;
-  border: none;
+  padding: 8px 18px;
   border-radius: 8px;
   cursor: pointer;
 }
-.save-btn:hover { opacity: .95; }
 
-/* Responsive: small screens — hide wide left column and show slimmer line indicator */
+.btn-secondary {
+  background: #eeeeee;
+  border: 1.5px solid #1a1a1a;
+  box-shadow: 2px 2px 0px #1a1a1a;
+  font-weight: 700;
+  padding: 8px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
 @media (max-width: 720px) {
-  .row { gap: 10px; }
-  .line-num { min-width: 42px; width: 42px; font-size: 16px; padding: 8px; }
   .boxes { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 420px) {
-  /* stack line-num above the boxes on very small screens */
-  .row {
-    flex-direction: column;
-  }
-  .line-num {
-    width: auto;
-    min-width: 0;
-    align-self: flex-start;
-  }
+  .row { flex-direction: column; }
   .boxes { grid-template-columns: repeat(1, 1fr); }
 }

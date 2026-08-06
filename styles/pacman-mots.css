@@ -1,10 +1,11 @@
+/* styles/pacman-mots.css - Neo-Brutalist Pac-Man Mots */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&display=swap');
 
 :root {
   --bg: #fbffd8;
   --text: #002000;
   --border: 2.5px solid #1a1a1a;
-  --shadow: 3px 3px 0px #1a1a1a;
+  --shadow: 4px 4px 0px #1a1a1a;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -14,82 +15,64 @@ body {
   background: var(--bg);
   font-family: 'Outfit', system-ui, sans-serif;
   color: var(--text);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
   -webkit-font-smoothing: antialiased;
 }
 
-canvas#game {
-  display: block;
-  width: 100vw;
-  height: 100vh;
+.game-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: min(960px, 98vw);
+}
+
+.game-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 0 4px;
+  gap: 10px;
 }
 
 .word-target {
-  position: fixed;
-  top: 16px;
-  left: 50%;
-  transform: translateX(-50%);
   background: #ffffff;
   border: var(--border);
-  box-shadow: var(--shadow);
-  padding: 6px 14px;
+  box-shadow: 3px 3px 0px #1a1a1a;
+  padding: 8px 18px;
   border-radius: 12px;
-  z-index: 10;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
+  gap: 6px;
 }
 
 .letter-slot {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 24px;
-  height: 32px;
-  padding: 0 4px;
+  min-width: 28px;
+  height: 36px;
+  padding: 0 5px;
   font-family: 'Outfit', sans-serif;
   font-weight: 800;
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   border-radius: 6px;
   user-select: none;
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease, color 0.2s ease;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.letter-slot.pending {
-  color: #002000;
-}
-
-.letter-slot.countdown-preview {
-  color: #002000;
-  background: #fdf5d3;
-  border: 1px solid #d4c284;
-}
-
+.letter-slot.pending { color: #002000; }
 .letter-slot.collected {
   color: #ffffff;
   background: #2e7d32;
   border: 1.5px solid #1a1a1a;
   box-shadow: 1.5px 1.5px 0px #1a1a1a;
   animation: stampPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-.letter-slot.hidden-slot {
-  color: #1a1a1a;
-  background: #ffe4b3;
-  border: 1.5px solid #1a1a1a;
-  box-shadow: 1.5px 1.5px 0px #1a1a1a;
-  animation: maskHide 0.35s ease-in-out;
-}
-
-.letter-slot.mystery {
-  background: #ffd77a;
-  color: #002000;
-}
-
-@keyframes maskHide {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(0.88); opacity: 0.6; }
-  100% { transform: scale(1); opacity: 1; }
 }
 
 @keyframes stampPop {
@@ -99,20 +82,36 @@ canvas#game {
 }
 
 .hud-box {
-  position: fixed;
-  top: 16px;
-  right: 16px;
+  background: #ffffff;
+  border: var(--border);
+  box-shadow: 3px 3px 0px #1a1a1a;
+  padding: 8px 18px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.board-frame {
+  width: 100%;
+  height: clamp(480px, 78vh, 760px);
   background: #ffffff;
   border: var(--border);
   box-shadow: var(--shadow);
-  padding: 8px 16px;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 1.05rem;
-  text-align: right;
-  z-index: 10;
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
 }
 
+canvas#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Countdown & Overlay */
 #countdown-overlay {
   position: fixed;
   inset: 0;
@@ -122,11 +121,10 @@ canvas#game {
   pointer-events: none;
   z-index: 10;
 }
-
 #countdown-overlay.hidden { display: none; }
 
 #countdown-box {
-  background: rgba(0, 32, 0, 0.85);
+  background: rgba(0, 32, 0, 0.88);
   backdrop-filter: blur(2px);
   color: #ffffff;
   padding: 24px 36px;
@@ -136,55 +134,33 @@ canvas#game {
   box-shadow: 6px 6px 0px #000000;
 }
 
-#countdown-text {
-  font-size: 1.4rem;
-  font-weight: 700;
-  margin-bottom: 6px;
-}
-
-#countdown-number {
-  font-size: 4rem;
-  font-weight: 800;
-}
-
 #game-over-popup {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 32, 0, 0.7);
-  backdrop-filter: blur(2px);
+  inset: 0;
+  background: rgba(0, 32, 0, 0.75);
+  backdrop-filter: blur(3px);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 50;
 }
-
 #game-over-popup.hidden { display: none; }
 
 #game-over-content {
   background: #ffffff;
-  padding: 32px 40px;
+  padding: 28px 36px;
   border-radius: 16px;
   text-align: center;
   box-shadow: 5px 5px 0px #1a1a1a;
   border: var(--border);
-  max-width: 360px;
+  max-width: 380px;
   width: 90%;
-}
-
-#game-over-content h1, #final-score {
-  font-size: 2.1rem;
-  margin-bottom: 10px;
-  font-weight: 800;
-  color: var(--text);
 }
 
 #popup-restart {
   padding: 10px 24px;
   font-size: 1.05rem;
-  font-weight: 700;
+  font-weight: 800;
   font-family: inherit;
   border: var(--border);
   border-radius: 10px;
@@ -192,25 +168,18 @@ canvas#game {
   color: var(--text);
   cursor: pointer;
   box-shadow: 3px 3px 0px #1a1a1a;
-  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.15s ease;
+  transition: transform 0.1s ease, background 0.15s ease;
 }
 
 #popup-restart:hover {
   background: #ffd77a;
-  transform: translate(-1.5px, -1.5px);
-  box-shadow: 4px 4px 0px #1a1a1a;
-}
-
-#popup-restart:active {
-  transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0px #1a1a1a;
+  transform: translate(-1px, -1px);
 }
 
 .heart {
   display: inline-block;
   font-size: 1.3rem;
   margin: 0 1px;
-  line-height: 1;
 }
-.heart.full  { color: #d32f2f; }
+.heart.full { color: #d32f2f; }
 .heart.empty { color: #cccccc; }
