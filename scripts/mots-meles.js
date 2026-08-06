@@ -1,4 +1,6 @@
 import { getBoxes } from './fetch_json.js';
+import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js?v=2';
+import { playClickSound, playHoverSound, playWordSuccessSound } from './sound.js';
 
 /* ---- DOM ---- */
 const gridEl     = document.getElementById("grid");
@@ -17,6 +19,7 @@ let selectedWords = [];
 let selection     = [];
 let selecting     = false;
 let selDirection  = null;
+let startTime     = Date.now();
 
 /* ---- Helpers ---- */
 function getWeekPositionFromURL() {
@@ -70,7 +73,6 @@ async function loadWords() {
       .map(w => ({ original: w, normalized: normalizeWord(w) }));
   } catch (e) {
     console.error("Erreur chargement:", e);
-    alert("Préviens le maitre si tu vois ceci !");
     const fallback = ["Erreur", "Chien", "Maison", "Fleur", "Soleil",
                       "Arbre", "Oiseau", "Nuage", "Riviere", "Montagne"];
     selectedWords = fallback.map(w => ({ original: w, normalized: normalizeWord(w) }));
@@ -135,10 +137,7 @@ function placeWords(words) {
     return false;
   }
 
-  const success = solve(0);
-  if (!success) {
-    console.warn("Retrying placement with subset...");
-  }
+  solve(0);
 
   tiles.forEach((t, idx) => {
     const r = Math.floor(idx / GRID_SIZE);
@@ -180,7 +179,6 @@ function directionBetween(t1, t2) {
 }
 
 function addSelection(tile) {
-  // Clicking an already-selected tile removes it from the end or start
   if (selection.includes(tile)) {
     const first = selection[0];
     const last  = selection[selection.length - 1];
@@ -241,6 +239,7 @@ function validateSelection() {
   const normalizedWords = selectedWords.map(w => w.normalized);
 
   if (normalizedWords.includes(mot) || normalizedWords.includes(rev)) {
+    playWordSuccessSound();
     selection.forEach(t => { t.classList.remove("selected"); t.classList.add("found"); });
     const foundNorm = normalizedWords.includes(mot) ? mot : rev;
     const li = document.getElementById("word-" + sanitizeId(foundNorm));
@@ -252,51 +251,25 @@ function validateSelection() {
   selecting = false;
 }
 
-import { showLeaderboardModal } from './leaderboard.js';
-
-let startTime = Date.now();
-
-/* ---- Win check ---- */
+/* ---- Win check & 2-step end flow ---- */
 function checkWin() {
   const allFound = selectedWords.every(w => {
     const li = document.getElementById("word-" + sanitizeId(w.normalized));
     return li?.classList.contains("found");
   });
   if (allFound) {
-    secretSpan.textContent = "Bravo !";
-    showGameOverPopup();
-  }
-}
-
-/* ---- Score & popup ---- */
-function calculateScore() {
-  return selectedWords.reduce((total, w) => {
-    const li = document.getElementById("word-" + sanitizeId(w.normalized));
-    return total + (li?.classList.contains("found") ? w.normalized.length : 0);
-  }, 0);
-}
-
-function showGameOverPopup() {
-  const popup       = document.getElementById("game-over-popup");
-  const finalScore  = document.getElementById("final-score");
-  const finalDetails = document.getElementById("final-details");
-
-  const elapsedSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
-
-  finalScore.textContent   = `🎉 Bravo ! Mots trouvés ! 🌟`;
-  finalDetails.textContent = `Temps : ${elapsedSec} secondes !`;
-  popup.classList.remove("hidden");
-
-  // Show Leaderboard modal automatically on win
-  setTimeout(() => {
-    showLeaderboardModal({
+    secretSpan.textContent = "Bravo ! Tu as tout trouvé ! 🌟";
+    const elapsedSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
+    
+    // Déclenche directement la séquence 2 étapes (Pas d'ancienne popup!)
+    triggerEndGameSequence({
       gameId: 'mots-meles',
       gameTitle: 'Mots Mêlés 🧩',
       currentScore: elapsedSec,
       scoreFormatted: `${elapsedSec} sec`,
       isLowerBetter: true,
     });
-  }, 400);
+  }
 }
 
 /* ---- Events ---- */
@@ -316,16 +289,13 @@ document.addEventListener("mouseup", () => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("popup-close")?.addEventListener("click", () => {
-    window.location.href = "finish.html";
-  });
-
   document.getElementById("btn-show-leaderboard")?.addEventListener("click", () => {
+    const elapsedSec = Math.round((Date.now() - startTime) / 1000);
     showLeaderboardModal({
       gameId: 'mots-meles',
       gameTitle: 'Mots Mêlés 🧩',
-      currentScore: Math.round((Date.now() - startTime) / 1000),
-      scoreFormatted: `${Math.round((Date.now() - startTime) / 1000)} sec`,
+      currentScore: elapsedSec,
+      scoreFormatted: `${elapsedSec} sec`,
       isLowerBetter: true,
     });
   });

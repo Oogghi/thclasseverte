@@ -2,22 +2,24 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
-  <title>Accueil - Jeux</title>
+  <title>Classe Verte de TH - Accueil</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-
-  <!-- Favicon emoji feuille verte -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='16'>🍃</text></svg>">
+  <link rel="stylesheet" href="styles/common.css">
   <link rel="stylesheet" href="styles/index.css">
 </head>
 <body>
-  <h1>🍃 La Classe Verte du Maitre! 🌞 🍃</h1>
+  <div class="header-title-container">
+    <h1>La Classe Verte du Maître ! 🍃</h1>
+  </div>
 
   <div class="buttons">
-    <a href="admin.html">Admin</a>
-    <a href="memory.html">Memory</a>
-    <a href="mots-meles.html">Mots-Mêlés</a>
-    <a href="wordle.html">Wordle</a>
-    <a href="snake.html">Snake</a>
+    <a href="admin.html">⚙️ Admin</a>
+    <a href="memory.html">🃏 Memory</a>
+    <a href="mots-meles.html">🧩 Mots-Mêlés</a>
+    <a href="wordle.html">🔤 Wordle</a>
+    <a href="snake.html">🍎 Snake</a>
+    <a href="snakemots.html">🐍 Snake Mots</a>
   </div>
 
   <div id="password-popup">
@@ -25,9 +27,11 @@
       <h2>🔒 Entrez le mot de passe</h2>
       <input type="password" id="user-password" placeholder="Mot de passe">
       <button id="submit-password">Valider</button>
-      <p id="error-msg" style="color: red; display: none;">Mot de passe incorrect !</p>
+      <p id="error-msg" style="color: #d32f2f; display: none; font-weight: 700; margin-top: 12px;">Mot de passe incorrect !</p>
     </div>
   </div>
+
+  <script type="module" src="scripts/sound.js"></script>
+  <script type="module" src="scripts/index.js"></script>
 </body>
-<script type="module" src="scripts/index.js"></script>
 </html>

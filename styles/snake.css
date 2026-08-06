@@ -1,97 +1,82 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&display=swap');
-
-:root {
-  --bg: #fbffd8;
-  --text: #002000;
-  --border: 2.5px solid #1a1a1a;
-  --shadow: 3px 3px 0px #1a1a1a;
-}
+@import url('common.css');
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { width: 100vw; height: 100vh; overflow: hidden; }
 
-body {
-  background: var(--bg);
-  font-family: 'Outfit', system-ui, sans-serif;
-  color: var(--text);
-  -webkit-font-smoothing: antialiased;
-}
-
 canvas#game {
   display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100vw;
   height: 100vh;
+  z-index: 1;
+}
+
+/* Header Title Container - Seul et centré en haut */
+.header-title-container {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  pointer-events: none;
+}
+
+h1 {
+  margin: 0;
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--text);
+  text-align: center;
 }
 
 .hud-badge {
   position: fixed;
-  top: 16px;
+  top: 14px;
   right: 16px;
   background: #ffffff;
   border: var(--border);
   box-shadow: var(--shadow);
   padding: 10px 20px;
   border-radius: 12px;
-  font-weight: 700;
-  font-size: 1.15rem;
+  font-weight: 800;
+  font-size: 1.1rem;
   z-index: 10;
 }
 
-#game-over-popup {
+/* Bouton Classement Tout en bas */
+.bottom-leaderboard-container {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 32, 0, 0.7);
-  backdrop-filter: blur(2px);
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
   display: flex;
   justify-content: center;
-  align-items: center;
-  z-index: 50;
 }
 
-#game-over-popup.hidden { display: none; }
-
-#game-over-content {
-  background: #ffffff;
-  padding: 32px 40px;
-  border-radius: 16px;
-  text-align: center;
-  box-shadow: 5px 5px 0px #1a1a1a;
-  border: var(--border);
-  max-width: 360px;
-  width: 90%;
-}
-
-#game-over-content h1, #final-score {
-  font-size: 2.1rem;
-  margin-bottom: 10px;
-  font-weight: 800;
-  color: var(--text);
-}
-
-#popup-restart {
+.btn-leaderboard-bottom {
   padding: 10px 24px;
+  font-weight: 800;
   font-size: 1.05rem;
-  font-weight: 700;
-  font-family: inherit;
   border: var(--border);
-  border-radius: 10px;
-  background: #ffe4b3;
-  color: var(--text);
+  background: var(--accent-yellow);
+  border-radius: 12px;
   cursor: pointer;
-  box-shadow: 3px 3px 0px #1a1a1a;
+  box-shadow: var(--shadow);
   transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.15s ease;
+  color: var(--text);
+  font-family: inherit;
 }
 
-#popup-restart:hover {
-  background: #ffd77a;
+.btn-leaderboard-bottom:hover {
+  background: var(--accent-yellow-hover);
   transform: translate(-1.5px, -1.5px);
-  box-shadow: 4px 4px 0px #1a1a1a;
+  box-shadow: var(--shadow-hover);
 }
 
-#popup-restart:active {
+.btn-leaderboard-bottom:active {
   transform: translate(1px, 1px);
-  box-shadow: 1px 1px 0px #1a1a1a;
+  box-shadow: var(--shadow-active);
 }

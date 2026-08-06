@@ -1,8 +1,6 @@
-// scripts/snakemots.js
-// Snake with word collection : all segments interpolated for a fluid tail.
-
 import { getBoxes } from './fetch_json.js';
-import { showLeaderboardModal } from './leaderboard.js';
+import { triggerEndGameSequence, showLeaderboardModal, getTopScores, getTopScoresAsync } from './leaderboard.js?v=2';
+import { playWordSuccessSound } from './sound.js';
 
 // --- Load words ---
 let words = [];
@@ -35,76 +33,45 @@ async function loadWords() {
   })();
   const ctx = canvas.getContext('2d', { alpha: false });
 
-  const wordDisplay      = document.querySelector('#word-display');
-  const wordsCounter     = document.querySelector('#words-counter');
-  const livesCounter     = document.querySelector('#lives-counter');
-  const gameOverPopup    = document.querySelector('#game-over-popup');
-  const finalScoreEl     = document.querySelector('#final-score');
-  const countdownOverlay = document.querySelector('#countdown-overlay');
-  const countdownText    = document.querySelector('#countdown-text');
-  const countdownNumber  = document.querySelector('#countdown-number');
+  const wordDisplay            = document.querySelector('#word-display');
+  const wordsCounter           = document.querySelector('#words-counter');
+  const livesCounter           = document.querySelector('#lives-counter');
+  const countdownOverlay       = document.querySelector('#countdown-overlay');
+  const countdownText          = document.querySelector('#countdown-text');
+  const countdownNumber        = document.querySelector('#countdown-number');
 
-  document.getElementById('btn-show-leaderboard')?.addEventListener('click', () => {
-    showLeaderboardModal({
-      gameId: 'snakemots',
-      gameTitle: 'Snake Mots 🐍',
-      currentScore: currentWordIndex,
-      scoreFormatted: `${currentWordIndex} mots`,
-      isLowerBetter: false,
-    });
-  });
+  const diffMenuOverlay        = document.querySelector('#difficulty-menu-overlay');
+  const diffButtons            = document.querySelectorAll('.btn-diff');
+  const btnChangeDifficulty    = document.querySelector('#btn-change-difficulty');
+  const btnOpenFullLeaderboard = document.querySelector('#btn-open-full-leaderboard');
 
-  // --- CSS variables ---
+  // --- Game state ---
+  let snake;
+  let prevCells = null;
+  let letters   = [];
+  let currentWordIndex = 0;
+  let currentWord      = '';
+  let nextLetterIndex  = 0;
+
+  const BASE_SPEED = 5.5;
+  let speedTilesPerSec = BASE_SPEED;
+  let moveInterval     = 1 / BASE_SPEED;
+  let lastMoveTime     = 0;
+  let interpolation    = 0;
+  const MAX_LIVES      = 3;
+  let gameRunning      = false;
+  let gamePaused       = false;
+  let score            = 0;
+  let lives            = MAX_LIVES;
+  let highscore        = parseInt(localStorage.getItem('snake_highscore') || '0', 10);
+
+  // --- CSS variables & URL params ---
   const rootStyle  = getComputedStyle(document.documentElement);
   const BG_COLOR   = rootStyle.getPropertyValue('--bg').trim()        || '#fbffd8';
   const GRID_COLOR = rootStyle.getPropertyValue('--grid-line').trim() || 'rgba(0,32,0,0.12)';
 
-  // --- URL Parameters ---
   const urlParams  = new URLSearchParams(window.location.search);
-  const difficulte = Math.max(0, Math.min(2, parseInt(urlParams.get('difficulte') || '0', 10)));
-
-  // --- PopupManager ---
-  class PopupManager {
-    constructor(rootSelector) {
-      this.root = document.querySelector(rootSelector);
-      if (!this.root) return;
-      this.scoreEl   = document.querySelector('#final-score');
-      this.summaryEl = document.querySelector('#game-summary');
-      this.restartBtn = document.querySelector('#popup-restart');
-      this.closeBtn   = document.querySelector('#popup-close');
-      this._onRestart = null;
-
-      this.closeBtn?.addEventListener('click', () => this.hide());
-      this.root.addEventListener('click', (e) => { if (e.target === this.root) this.hide(); });
-      this.restartBtn?.addEventListener('click', (e) => {
-        e.preventDefault();
-        if (typeof this._onRestart === 'function') this._onRestart();
-        else this.hide();
-      });
-    }
-
-    show({ title = '', summaryHtml = '', onRestart = null } = {}) {
-      if (!this.root) return;
-      if (this.scoreEl && title)   this.scoreEl.textContent = title;
-      if (this.summaryEl && summaryHtml) this.summaryEl.innerHTML = summaryHtml;
-      this._onRestart = onRestart;
-      this.root.style.display = 'flex';
-      this.root.classList.remove('hidden');
-      this.restartBtn?.focus();
-    }
-
-    hide() {
-      if (!this.root) return;
-      this.root.style.display = 'none';
-      this.root.classList.add('hidden');
-    }
-
-    setSummary(html) {
-      if (this.summaryEl) this.summaryEl.innerHTML = html;
-    }
-  }
-
-  const popupManager = new PopupManager('#game-over-popup');
+  let difficulte   = Math.max(0, Math.min(2, parseInt(urlParams.get('difficulte') || '0', 10)));
 
   // --- Countdown helpers ---
   let isCountingDown = false;
@@ -160,6 +127,114 @@ async function loadWords() {
     });
   }
 
+  // --- Difficulty & Leaderboard UI ---
+  async function renderSideLeaderboard() {
+    const tableBody = document.querySelector('#side-scores-body');
+    if (!tableBody) return;
+
+    const populate = (scores) => {
+      if (!scores || scores.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="3" class="empty-side-msg">Aucun score cette semaine. Sois le 1er ! 🌟</td></tr>`;
+        return;
+      }
+
+      tableBody.innerHTML = scores.slice(0, 5).map((item, idx) => {
+        const rank = idx + 1;
+        let rankDisplay = `#${rank}`;
+        if (rank === 1) rankDisplay = '🥇';
+        else if (rank === 2) rankDisplay = '🥈';
+        else if (rank === 3) rankDisplay = '🥉';
+
+        return `
+          <tr>
+            <td><span style="font-weight:800;">${rankDisplay}</span></td>
+            <td>${escapeHTML(item.name)}</td>
+            <td style="text-align:right;"><strong>${escapeHTML(item.scoreFormatted)}</strong></td>
+          </tr>
+        `;
+      }).join('');
+    };
+
+    populate(getTopScores('snakemots', 'week', false));
+    const globalScores = await getTopScoresAsync('snakemots', 'week', false);
+    populate(globalScores);
+  }
+
+  function escapeHTML(str) {
+    return String(str || '').replace(/[&<>"']/g, match => {
+      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+      return map[match];
+    });
+  }
+
+  function showDifficultyMenu() {
+    setPaused(true);
+    renderSideLeaderboard();
+    if (diffMenuOverlay) {
+      diffMenuOverlay.style.display = 'flex';
+      diffMenuOverlay.classList.remove('hidden');
+    }
+  }
+
+  function hideDifficultyMenu() {
+    if (diffMenuOverlay) {
+      diffMenuOverlay.style.display = 'none';
+      diffMenuOverlay.classList.add('hidden');
+    }
+  }
+
+  function openLeaderboard() {
+    const isDiffMenuOpen = diffMenuOverlay && !diffMenuOverlay.classList.contains('hidden');
+    const wasRunning = gameRunning && !gamePaused;
+    if (wasRunning) setPaused(true);
+    hideDifficultyMenu();
+
+    showLeaderboardModal({
+      gameId: 'snakemots',
+      gameTitle: 'Snake Mots 🐍',
+      currentScore: currentWordIndex || 0,
+      scoreFormatted: `${currentWordIndex || 0} mots`,
+      isLowerBetter: false,
+      onClose: () => {
+        if (isDiffMenuOpen || !gameRunning) {
+          showDifficultyMenu();
+        } else if (wasRunning) {
+          lastMoveTime = performance.now() / 1000;
+          setPaused(false);
+        }
+      }
+    });
+  }
+
+  document.getElementById('btn-show-leaderboard')?.addEventListener('click', openLeaderboard);
+  btnOpenFullLeaderboard?.addEventListener('click', openLeaderboard);
+
+  diffButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      difficulte = parseInt(btn.getAttribute('data-diff') || '0', 10);
+      hideDifficultyMenu();
+      startNewGame();
+    });
+  });
+
+  btnChangeDifficulty?.addEventListener('click', () => {
+    showDifficultyMenu();
+  });
+
+  diffMenuOverlay?.addEventListener('click', (e) => {
+    if (e.target === diffMenuOverlay) {
+      if (gameRunning) {
+        hideDifficultyMenu();
+        setPaused(false);
+        lastMoveTime = performance.now() / 1000;
+      } else {
+        difficulte = 0;
+        hideDifficultyMenu();
+        startNewGame();
+      }
+    }
+  });
+
   // --- Grid sizing ---
   let DPR = Math.max(1, window.devicePixelRatio || 1);
   let width = 0, height = 0;
@@ -207,30 +282,11 @@ async function loadWords() {
   };
   const isOpposite = (a, b) => a.x + b.x === 0 && a.y + b.y === 0;
 
-  // --- Game state ---
-  let snake;
-  let prevCells = null; // snapshot of all positions before each step (smooth tail)
-  let letters   = [];
-  let currentWordIndex = 0;
-  let currentWord      = '';
-  let nextLetterIndex  = 0;
-
-  const BASE_SPEED = 5.5;
-  let speedTilesPerSec = BASE_SPEED;
-  let moveInterval     = 1 / BASE_SPEED;
-  let lastMoveTime     = 0;
-  let interpolation    = 0;
-  const MAX_LIVES      = 3;
-  let gameRunning      = false;
-  let gamePaused       = false;
-  let score            = 0;
-  let lives            = MAX_LIVES;
-  let highscore        = parseInt(localStorage.getItem('snake_highscore') || '0', 10);
-
   function isTypingInInput() {
     const active = document.activeElement;
     if (active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) return true;
     if (document.querySelector('.leaderboard-overlay:not(.hidden)')) return true;
+    if (diffMenuOverlay && !diffMenuOverlay.classList.contains('hidden')) return true;
     return false;
   }
 
@@ -323,7 +379,7 @@ async function loadWords() {
           displayChar = char;
           slotClass += ' collected revealed';
         } else {
-          displayChar = '?';
+          displayChar = '_';
           slotClass += ' hidden-slot mystery';
         }
       }
@@ -351,7 +407,6 @@ async function loadWords() {
     if (!currentWord) return;
 
     const occupied = new Set(snake.cells.map(c => `${c.x},${c.y}`));
-    // Also exclude the tile right in front of the head so the first letter isn't immediately eaten
     const headNext = { x: snake.cells[0].x + (snake.dir?.x ?? 1), y: snake.cells[0].y + (snake.dir?.y ?? 0) };
     if (headNext.x >= 0 && headNext.x < cols && headNext.y >= 0 && headNext.y < rows)
       occupied.add(`${headNext.x},${headNext.y}`);
@@ -366,7 +421,6 @@ async function loadWords() {
         tries++;
       } while (occupied.has(`${pos.x},${pos.y}`) && tries < 2000);
 
-      // Exhaustive fallback if random search fails
       if (tries >= 2000) {
         let found = false;
         outer: for (let ry = 1; ry < rows - 1; ry++) {
@@ -403,7 +457,7 @@ async function loadWords() {
     speedTilesPerSec = BASE_SPEED;
     moveInterval     = 1 / speedTilesPerSec;
 
-    spawnSnake(true); // reposition at center, keep current length
+    spawnSnake(true);
     setPaused(false);
     lastMoveTime = performance.now() / 1000;
   }
@@ -418,7 +472,6 @@ async function loadWords() {
     const head = snake.cells[0];
     const nh   = { x: head.x + snake.dir.x, y: head.y + snake.dir.y };
 
-    // Snapshot ALL positions before modifying — enables smooth tail interpolation.
     prevCells     = snake.cells.map(c => ({ ...c }));
     interpolation = 0;
 
@@ -442,6 +495,7 @@ async function loadWords() {
         updateWordDisplay(false);
 
         if (nextLetterIndex >= currentWord.length) {
+          playWordSuccessSound();
           currentWordIndex++;
           updateHUD();
           spawnSnake(true);
@@ -490,13 +544,6 @@ async function loadWords() {
     return handleDeath();
   }
 
-  function buildEndSummary() {
-    return `
-      <div>Mots trouvés : <strong>${Math.min(currentWordIndex, words.length)}</strong></div>
-      <div style="margin-top:6px;">Vies restantes : ${heartsHTML()}</div>
-    `;
-  }
-
   function handleDeath() {
     gameRunning = false;
     gamePaused  = false;
@@ -506,21 +553,14 @@ async function loadWords() {
       try { localStorage.setItem('snake_highscore', String(highscore)); } catch (_) {}
     }
 
-    popupManager.show({
-      title:       `Score: ${score}`,
-      summaryHtml: buildEndSummary(),
-      onRestart:   restartGame,
+    triggerEndGameSequence({
+      gameId: 'snakemots',
+      gameTitle: 'Snake Mots 🐍',
+      currentScore: currentWordIndex,
+      scoreFormatted: `${currentWordIndex} mots`,
+      isLowerBetter: false,
+      onClose: restartGame,
     });
-
-    setTimeout(() => {
-      showLeaderboardModal({
-        gameId: 'snakemots',
-        gameTitle: 'Snake Mots 🐍',
-        currentScore: currentWordIndex,
-        scoreFormatted: `${currentWordIndex} mots`,
-        isLowerBetter: false,
-      });
-    }, 400);
 
     return false;
   }
@@ -529,21 +569,14 @@ async function loadWords() {
     gameRunning = false;
     gamePaused  = false;
 
-    popupManager.show({
-      title:       `Bravo ! Score: ${score}`,
-      summaryHtml: buildEndSummary(),
-      onRestart:   restartGame,
+    triggerEndGameSequence({
+      gameId: 'snakemots',
+      gameTitle: 'Snake Mots 🐍',
+      currentScore: currentWordIndex,
+      scoreFormatted: `${currentWordIndex} mots`,
+      isLowerBetter: false,
+      onClose: restartGame,
     });
-
-    setTimeout(() => {
-      showLeaderboardModal({
-        gameId: 'snakemots',
-        gameTitle: 'Snake Mots 🐍',
-        currentScore: currentWordIndex,
-        scoreFormatted: `${currentWordIndex} mots`,
-        isLowerBetter: false,
-      });
-    }, 400);
   }
 
   function restartGame() {
@@ -553,7 +586,6 @@ async function loadWords() {
     }
     isCountingDown = false;
     hideCountdown();
-    popupManager.hide();
     currentWordIndex = 0;
     score  = 0;
     lives  = MAX_LIVES;
@@ -578,7 +610,6 @@ async function loadWords() {
     moveInterval     = 1 / BASE_SPEED;
     spawnSnake(false);
     updateHUD();
-    popupManager.hide();
     gameRunning = true;
     gamePaused  = false;
     startWord();
@@ -614,15 +645,12 @@ async function loadWords() {
     const gridW = cols * tile;
     const gridH = rows * tile;
 
-    // Solid board drop shadow
     ctx.fillStyle = '#1a1a1a';
     ctx.fillRect(4, 4, gridW, gridH);
 
-    // Clean board field
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, gridW, gridH);
 
-    // Soft alternating pattern inside the grid
     ctx.fillStyle = 'rgba(235, 248, 220, 0.45)';
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -632,7 +660,6 @@ async function loadWords() {
       }
     }
 
-    // Grid lines
     ctx.beginPath();
     ctx.strokeStyle = 'rgba(0, 32, 0, 0.08)';
     ctx.lineWidth   = 1;
@@ -640,7 +667,6 @@ async function loadWords() {
     for (let r = 0; r <= rows; r++) { ctx.moveTo(0, r * tile); ctx.lineTo(gridW, r * tile); }
     ctx.stroke();
 
-    // Crisp outer border around the grid board
     ctx.strokeStyle = '#1a1a1a';
     ctx.lineWidth   = 2.5;
     ctx.strokeRect(0, 0, gridW, gridH);
@@ -670,9 +696,6 @@ async function loadWords() {
     const t     = Math.max(0, Math.min(1, interpolation));
     const cells = snake.cells;
 
-    // --- Head tip: slides from prevCells[0] (old head pos) to cells[0] (new head pos).
-    // prevCells[0] == cells[0] on init so there is no jump before the first step.
-    // This motion is always axis-aligned (the snake only moves along grid axes).
     const headTo   = gridToPixel(cells[0]);
     const headFrom = (prevCells && prevCells.length > 0) ? gridToPixel(prevCells[0]) : headTo;
     const headPt   = {
@@ -680,26 +703,21 @@ async function loadWords() {
       py: headFrom.py + (headTo.py - headFrom.py) * t,
     };
 
-    // --- Tail trailing edge.
     const tailCell   = cells[cells.length - 1];
     const tailCellPx = gridToPixel(tailCell);
     const isGrowing  = prevCells && prevCells.length < cells.length;
 
     let tailPt;
     if (isGrowing && cells.length >= 2) {
-      // Growth step: the new tail cell "sprouts" outward at mid-animation then settles at T.
-      // sin(π·t) is 0 at both t=0 and t=1, peaking at t=0.5 — clean boundaries, visible pulse.
       const prev2Px = gridToPixel(cells[cells.length - 2]);
-      const tdx     = (tailCellPx.px - prev2Px.px) / tile; // unit direction x (±1 or 0)
-      const tdy     = (tailCellPx.py - prev2Px.py) / tile; // unit direction y (±1 or 0)
+      const tdx     = (tailCellPx.px - prev2Px.px) / tile;
+      const tdy     = (tailCellPx.py - prev2Px.py) / tile;
       const bounce  = Math.sin(Math.PI * t) * tile * 0.55;
       tailPt = {
         px: tailCellPx.px + tdx * bounce,
         py: tailCellPx.py + tdy * bounce,
       };
     } else {
-      // Normal step: tail trailing edge retracts from the old tail position toward the new one.
-      // Both cells are adjacent on the same axis → always axis-aligned, never diagonal.
       const prevTailSrc = (prevCells && prevCells.length > 0)
         ? prevCells[Math.min(prevCells.length - 1, cells.length - 1)]
         : tailCell;
@@ -710,12 +728,6 @@ async function loadWords() {
       };
     }
 
-    // --- Point list:
-    //   [animated head] → [fixed body joints at grid positions] → [animated tail trailing edge]
-    //
-    // Crucially, every body joint (cells[1]..cells[n-1]) sits at its exact grid-aligned position.
-    // This means corner joints are always clean right angles — the polyline between them is
-    // horizontal or vertical, never diagonal, so there is no flickering at turns.
     const pts = [headPt];
     for (let i = 1; i < cells.length; i++) pts.push(gridToPixel(cells[i]));
     pts.push(tailPt);
@@ -738,7 +750,6 @@ async function loadWords() {
     ctx.strokeStyle = '#7ecb63';
     ctx.stroke();
 
-    // Eyes on the head
     const eyeOff = tile * 0.18;
     const eyeR   = Math.max(2, tile * 0.06);
     const dir    = snake.dir || Dir.RIGHT;
@@ -760,12 +771,12 @@ async function loadWords() {
 
   // --- Init ---
   (async () => {
-    await loadWords();
     resizeCanvas();
-    popupManager.hide();
+    drawGridBackground();
+    await loadWords();
     hideCountdown();
     updateHUD();
-    startNewGame();
+    showDifficultyMenu();
     requestAnimationFrame(update);
   })();
 })();

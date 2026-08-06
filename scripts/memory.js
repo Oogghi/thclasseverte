@@ -1,10 +1,9 @@
 import { getBoxes } from './fetch_json.js';
+import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js?v=2';
+import { playClickSound, playWordSuccessSound } from './sound.js';
 
 // --- DOM ---
-const GRID          = document.getElementById('grid');
-const POPUP         = document.getElementById('game-over-popup');
-const SCORE_TITLE   = document.getElementById('final-score');
-const SCORE_DETAILS = document.getElementById('final-details');
+const GRID = document.getElementById('grid');
 
 // --- State ---
 let words        = [];
@@ -15,6 +14,7 @@ let locked       = false;
 let flipsCount   = 0;
 let triesCount   = 0;
 let matchesCount = 0;
+let startTime    = Date.now();
 
 // --- Helpers ---
 function shuffle(arr) {
@@ -37,7 +37,6 @@ async function loadWords() {
     words = boxes.flatMap(b => b.words);
   } catch (err) {
     console.error('Erreur chargement:', err);
-    alert('Préviens le maitre si tu vois ceci !');
     words = Array(16).fill('Erreur');
   }
   startGame();
@@ -47,10 +46,10 @@ async function loadWords() {
 function fitTextToTile(backSpan, tileEl) {
   const style   = getComputedStyle(tileEl);
   const padH    = parseFloat(style.paddingLeft || 8) + parseFloat(style.paddingRight || 8);
-  const maxSize = 22;
+  const maxSize = 26;
   const minSize = 10;
 
-  let fs = Math.min(maxSize, Math.max(minSize, Math.floor(tileEl.clientHeight * 0.5)));
+  let fs = Math.min(maxSize, Math.max(minSize, Math.floor(tileEl.clientHeight * 0.45)));
   backSpan.style.fontSize   = fs + 'px';
   backSpan.style.whiteSpace = 'nowrap';
   backSpan.style.lineHeight = '1';
@@ -69,6 +68,7 @@ function startGame() {
   flipsCount   = 0;
   triesCount   = 0;
   matchesCount = 0;
+  startTime    = Date.now();
 
   const paired = [...words, ...words];
   shuffle(paired);
@@ -99,7 +99,6 @@ function startGame() {
   secondCard = null;
   locked     = false;
 
-  hidePopup();
   requestAnimationFrame(adjustAllCardFonts);
 }
 
@@ -118,16 +117,27 @@ function onTileClick(e) {
     secondCard = card;
     triesCount++;
     locked = true;
-    setTimeout(checkMatch, 600);
+    setTimeout(checkMatch, 500);
   }
 }
 
 function checkMatch() {
   if (firstCard.dataset.word === secondCard.dataset.word) {
+    playWordSuccessSound();
     firstCard.classList.add('matched');
     secondCard.classList.add('matched');
     matchesCount++;
-    if (matchesCount === words.length) showPopup();
+
+    if (matchesCount === words.length) {
+      const elapsedSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
+      triggerEndGameSequence({
+        gameId: 'memory',
+        gameTitle: 'Memory 🃏',
+        currentScore: elapsedSec,
+        scoreFormatted: `${elapsedSec}s (${flipsCount} coups)`,
+        isLowerBetter: true,
+      });
+    }
   } else {
     firstCard.classList.remove('flipped');
     secondCard.classList.remove('flipped');
@@ -137,50 +147,7 @@ function checkMatch() {
   locked     = false;
 }
 
-// --- Scoring ---
-function computeScore() {
-  const minFlips   = matchesCount * 2;
-  const speedBonus = Math.max(0, minFlips / Math.max(1, flipsCount));
-  const efficiency = (matchesCount / Math.max(1, triesCount)) * 800;
-  return Math.round(efficiency + speedBonus * 200);
-}
-
-import { showLeaderboardModal } from './leaderboard.js';
-
-let startTime = Date.now();
-
-// --- Popup ---
-function showPopup() {
-  const score      = computeScore();
-  const efficiency = triesCount > 0 ? Math.round((matchesCount / triesCount) * 100) : 0;
-  const elapsedSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
-
-  SCORE_TITLE.textContent = '🎉 Bravo ! Toutes les paires trouvées ! 🌟';
-  SCORE_DETAILS.innerHTML = `Temps : <strong>${elapsedSec}s</strong> | Coups : ${flipsCount}<br><span style="color:#2e7d32; font-weight:700;">Quelle mémoire fantastique !</span>`;
-  POPUP.classList.remove('hidden');
-
-  setTimeout(() => {
-    showLeaderboardModal({
-      gameId: 'memory',
-      gameTitle: 'Memory 🃏',
-      currentScore: elapsedSec,
-      scoreFormatted: `${elapsedSec}s (${flipsCount} coups)`,
-      isLowerBetter: true,
-    });
-  }, 400);
-}
-
-function hidePopup() {
-  POPUP.classList.add('hidden');
-}
-
 // --- Events ---
-document.getElementById('popup-restart')?.addEventListener('click', () => {
-  hidePopup();
-  startTime = Date.now();
-  loadWords();
-});
-
 document.getElementById('btn-show-leaderboard')?.addEventListener('click', () => {
   const elapsedSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
   showLeaderboardModal({
@@ -199,5 +166,4 @@ window.addEventListener('resize', () => {
 });
 
 // --- Init ---
-startTime = Date.now();
 loadWords();

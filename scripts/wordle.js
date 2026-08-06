@@ -1,26 +1,31 @@
 import { getBoxes } from './fetch_json.js';
+import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js?v=2';
+import { playClickSound, playWordSuccessSound } from './sound.js';
 
 const DICT_URL = '../mots.txt';
 const MAX_ROWS = Infinity;
+const TARGET_WORDS_COUNT = 8;
 
 /* ---- DOM ---- */
-const grid      = document.getElementById('grid');
-const submitBtn = document.getElementById('submit');
-const messageEl = document.getElementById('msg');
-const POPUP           = document.getElementById('game-over-popup');
-const POPUP_RESTART   = document.getElementById('popup-restart');
-const SCORE_TITLE     = document.getElementById('FINAL_SCORE_TITLE');
-const SCORE_DETAILS   = document.getElementById('FINAL_DETAILS');
+const grid       = document.getElementById('grid');
+const submitBtn  = document.getElementById('submit');
+const messageEl  = document.getElementById('msg');
+const wordsCount = document.getElementById('words-counter');
+const triesCount = document.getElementById('tries-counter');
 
 /* ---- Game state ---- */
-let dictByLength = new Map();
-let answers      = [];
-let secretWord   = '';
-let wordLen      = 5;
-let currentRow   = 0;
-let currentCol   = 0;
-let board        = [];
-let triesCount   = 0;
+let dictByLength    = new Map();
+let answers         = [];
+let secretWord      = '';
+let wordLen         = 5;
+let currentRow      = 0;
+let currentCol      = 0;
+let board           = [];
+
+let wordsCompleted   = 0; // 0 to 8
+let totalTriesCount  = 0; // Cumulative attempts across completed words
+let currentWordTries = 0; // Attempts on the active word
+let usedWords        = new Set();
 
 /* ---- Helpers ---- */
 function strip(text) {
@@ -39,6 +44,11 @@ async function fetchFile(url) {
   if (!res.ok) throw new Error(`fetch ${url} failed: ${res.status}`);
   const txt = await res.text();
   return txt.split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(strip);
+}
+
+function updateHUD() {
+  if (wordsCount) wordsCount.textContent = `Mots : ${Math.min(wordsCompleted + 1, TARGET_WORDS_COUNT)}/${TARGET_WORDS_COUNT}`;
+  if (triesCount) triesCount.textContent = `Essais : ${totalTriesCount + currentWordTries}`;
 }
 
 /* ---- Tile / caret ---- */
@@ -73,20 +83,22 @@ async function loadAnswers() {
     if (!answers.length) throw new Error('Empty answer pool');
   } catch (err) {
     console.warn('Fallback:', err);
-    alert("Préviens le maitre si tu vois ceci !");
     answers = ["erreur", "erreur", "erreur", "erreur", "erreur", "erreur", "erreur", "erreur",
                "erreur", "erreur", "erreur", "erreur", "erreur", "erreur", "erreur", "erreur"];
   }
 }
 
 async function initGame() {
-  triesCount = 0;
+  wordsCompleted   = 0;
+  totalTriesCount  = 0;
+  currentWordTries = 0;
+  usedWords.clear();
+  updateHUD();
 
   let dictWords = [];
   try {
     dictWords = await fetchFile(DICT_URL);
   } catch (err) {
-    alert('Préviens le maitre ! : ', err);
     dictWords = ['pomme', 'table', 'jouer', 'chien', 'aimer', 'fleur', 'ordinateur', 'smartphone', 'voiture', 'avion'].map(strip);
   }
 
@@ -125,6 +137,7 @@ function renderVirtualKeyboard() {
       if (key === '⌫' || key === 'OK') btn.classList.add('vk-key-wide');
       btn.addEventListener('click', (e) => {
         e.preventDefault();
+        playClickSound();
         if (key === '⌫') handleBack();
         else if (key === 'OK') submitGuess();
         else handleLetter(key);
@@ -135,22 +148,30 @@ function renderVirtualKeyboard() {
   });
 }
 
+function resetKeyboardColors() {
+  document.querySelectorAll('.vk-key').forEach(k => {
+    k.classList.remove('correct', 'present', 'absent');
+  });
+}
+
 /* ---- Secret management ---- */
 function pickRandomSecret() {
   const pool = answers.length ? answers : Array.from(dictByLength.get(wordLen) || []);
 
   if (!pool.length) {
-    alert("Prévenir le maitre !");
     secretWord = 'pomme';
     wordLen    = 5;
     return;
   }
 
   let word;
+  let attempts = 0;
   do {
     word = strip(pool[Math.floor(Math.random() * pool.length)]);
-  } while (word.length < 3 || word.includes('œ'));
+    attempts++;
+  } while ((word.length < 3 || word.includes('œ') || usedWords.has(word)) && attempts < 100);
 
+  usedWords.add(word);
   secretWord = word;
   wordLen    = word.length;
 }
@@ -182,8 +203,8 @@ function appendRow() {
 function adjustTileSize(cols) {
   const gap       = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--gap')) || 8;
   const container = grid.parentElement;
-  const availW    = container ? container.clientWidth : Math.min(window.innerWidth - 40, 540);
-  const size      = Math.max(36, Math.min(84, Math.floor((availW - (cols - 1) * gap) / cols)));
+  const availW    = container ? container.clientWidth : Math.min(window.innerWidth - 40, 600);
+  const size      = Math.max(38, Math.min(90, Math.floor((availW - (cols - 1) * gap) / cols)));
   document.documentElement.style.setProperty('--size', size + 'px');
   grid.style.gridTemplateColumns = `repeat(${cols}, var(--size))`;
 }
@@ -231,7 +252,6 @@ function submitGuess() {
     return;
   }
 
-  // Score each letter
   const secretArr = secretWord.split('');
   const status    = Array(guess.length).fill('absent');
 
@@ -244,7 +264,6 @@ function submitGuess() {
     if (idx !== -1) { status[i] = 'present'; secretArr[idx] = null; }
   }
 
-  // Apply colours to tiles and update virtual keyboard
   for (let i = 0; i < guess.length; i++) {
     const tile = grid.children[currentRow * wordLen + i];
     if (tile) {
@@ -267,7 +286,6 @@ function submitGuess() {
     }
   }
 
-  // Mark short-word padding as missing
   for (let i = guess.length; i < wordLen; i++) {
     const tile = grid.children[currentRow * wordLen + i];
     if (!tile) continue;
@@ -276,12 +294,38 @@ function submitGuess() {
     tile.className = 'tile missing';
   }
 
-  triesCount++;
+  currentWordTries++;
+  updateHUD();
 
   if (status.every(s => s === 'correct')) {
-    showPopup();
+    playWordSuccessSound();
+    wordsCompleted++;
+    totalTriesCount += currentWordTries;
+    currentWordTries = 0;
+    updateHUD();
+
+    if (wordsCompleted < TARGET_WORDS_COUNT) {
+      showMessage(`Bravo ! Mot ${wordsCompleted}/${TARGET_WORDS_COUNT} trouvé ! 🎉`);
+      setTimeout(() => {
+        resetKeyboardColors();
+        pickRandomSecret();
+        buildGrid();
+      }, 900);
+      return;
+    }
+
+    // Completed 8 words in a row -> Trigger End Game sequence!
     currentRow = MAX_ROWS;
     updateCaret();
+
+    triggerEndGameSequence({
+      gameId: 'wordle',
+      gameTitle: 'Wordle 🔤',
+      currentScore: totalTriesCount,
+      scoreFormatted: `${totalTriesCount} essais (8 mots)`,
+      isLowerBetter: true,
+      onClose: resetFullGame,
+    });
     return;
   }
 
@@ -291,38 +335,15 @@ function submitGuess() {
   updateCaret();
 }
 
-import { showLeaderboardModal } from './leaderboard.js';
-
-function computeScore() {
-  const maxScore  = wordLen * 100;
-  const idealTries = wordLen + 1;
-  const raw        = maxScore * (1 - (triesCount - 1) / idealTries);
-  return Math.max(Math.round(raw), Math.round(maxScore * 0.1));
-}
-
-function showPopup() {
-  const score = computeScore();
-
-  let message = '';
-  if (triesCount === 1)                         message = '🎉 Gé-nials ! Trouver du premier coup, quel champion !';
-  else if (triesCount <= Math.ceil(wordLen / 2)) message = '🌟 Bravo ! Excellente déduction !';
-  else if (triesCount <= wordLen)               message = '👏 Super effort ! Tu as réussi !';
-  else                                          message = '💪 Bravo pour ta ténacité !';
-
-  SCORE_TITLE.textContent = '🎉 Gagné ! Score : ' + score;
-  SCORE_DETAILS.innerHTML = `Nombre d'essais : ${triesCount} <br>${message}`;
-  POPUP.classList.remove('hidden');
-  POPUP_RESTART.focus();
-
-  setTimeout(() => {
-    showLeaderboardModal({
-      gameId: 'wordle',
-      gameTitle: 'Wordle 🔤',
-      currentScore: triesCount,
-      scoreFormatted: `${triesCount} essai(s)`,
-      isLowerBetter: true,
-    });
-  }, 400);
+function resetFullGame() {
+  wordsCompleted   = 0;
+  totalTriesCount  = 0;
+  currentWordTries = 0;
+  usedWords.clear();
+  updateHUD();
+  resetKeyboardColors();
+  pickRandomSecret();
+  buildGrid();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -330,8 +351,8 @@ document.addEventListener("DOMContentLoaded", () => {
     showLeaderboardModal({
       gameId: 'wordle',
       gameTitle: 'Wordle 🔤',
-      currentScore: triesCount || 1,
-      scoreFormatted: triesCount ? `${triesCount} essai(s)` : 'En cours',
+      currentScore: totalTriesCount || 1,
+      scoreFormatted: (totalTriesCount || currentWordTries) ? `${totalTriesCount + currentWordTries} essais (${wordsCompleted}/${TARGET_WORDS_COUNT} mots)` : 'En cours',
       isLowerBetter: true,
     });
   });
@@ -343,7 +364,7 @@ function shakeRow(r) {
     const tile = grid.children[r * wordLen + i];
     if (!tile) continue;
     tile.classList.remove('shake');
-    void tile.offsetWidth; // reflow to restart animation
+    void tile.offsetWidth;
     tile.classList.add('shake');
     setTimeout(() => tile.classList.remove('shake'), 600);
   }
@@ -371,7 +392,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Backspace')                                          { e.preventDefault(); handleBack();        }
   else if (e.key === 'Enter')                                         { e.preventDefault(); submitGuess();       }
   else if (e.key.length === 1 && /[a-zA-ZÀ-ÖØ-öø-ÿ-]/.test(e.key)) { e.preventDefault(); handleLetter(e.key); }
-  else if (e.key === 'r' && currentRow >= MAX_ROWS)                   { e.preventDefault(); resetGame();         }
+  else if (e.key === 'r' && currentRow >= MAX_ROWS)                   { e.preventDefault(); resetFullGame();     }
 });
 
 document.addEventListener('paste', e => {
@@ -380,18 +401,10 @@ document.addEventListener('paste', e => {
   e.preventDefault();
 });
 
-function resetGame() {
-  pickRandomSecret();
-  buildGrid();
-  triesCount = 0;
-}
-
-POPUP_RESTART.addEventListener('click', () => {
-  POPUP.classList.add('hidden');
-  initGame();
+submitBtn?.addEventListener('click', () => {
+  playClickSound();
+  submitGuess();
 });
-
-submitBtn.addEventListener('click', submitGuess);
 window.addEventListener('resize', () => adjustTileSize(wordLen));
 
 /* ---- Init ---- */

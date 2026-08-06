@@ -1,4 +1,4 @@
-import { showLeaderboardModal } from './leaderboard.js';
+import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js?v=2';
 
 (() => {
   'use strict';
@@ -12,32 +12,36 @@ import { showLeaderboardModal } from './leaderboard.js';
   })();
   const ctx = canvas.getContext('2d', { alpha: false });
 
-  const gameOverPopup  = document.querySelector('#game-over-popup');
-  const finalScoreEl   = document.querySelector('#final-score');
-  const appleCounter   = document.querySelector('#apple-counter');
-  const popupRestartBtn = document.querySelector('#popup-restart');
+  const appleCounter = document.querySelector('#apple-counter');
 
   document.getElementById('btn-show-leaderboard')?.addEventListener('click', () => {
+    const wasRunning = gameRunning && !gamePaused;
+    if (wasRunning) setPaused(true);
     showLeaderboardModal({
       gameId: 'snake',
       gameTitle: 'Snake 🍎',
       currentScore: score,
       scoreFormatted: `${score} pommes`,
       isLowerBetter: false,
+      onClose: () => {
+        if (wasRunning) {
+          lastMoveTime = performance.now() / 1000;
+          setPaused(false);
+        }
+      }
     });
   });
 
   // --- CSS variables ---
   const rootStyle  = getComputedStyle(document.documentElement);
-  const BG_COLOR   = rootStyle.getPropertyValue('--bg').trim()        || '#fbffd8';
-  const GRID_COLOR = rootStyle.getPropertyValue('--grid-line').trim() || 'rgba(0,32,0,0.12)';
+  const BG_COLOR   = rootStyle.getPropertyValue('--bg').trim() || '#fbffd8';
 
   // --- Grid sizing ---
   let DPR = Math.max(1, window.devicePixelRatio || 1);
   let width = 0, height = 0;
   let cols = 0, rows = 0;
-  let tile = 30;
-  const MIN_TILE = 16, MAX_TILE = 96;
+  let tile = 32;
+  const MIN_TILE = 18, MAX_TILE = 96;
   let offsetX = 0, offsetY = 0;
 
   function resizeCanvas() {
@@ -46,9 +50,10 @@ import { showLeaderboardModal } from './leaderboard.js';
     height = window.innerHeight;
 
     const marginX = 24;
-    const marginY = 32;
+    const topUIHeight = 80;
+    const bottomUIHeight = 70;
     const availW = Math.max(200, width - marginX * 2);
-    const availH = Math.max(200, height - marginY * 2);
+    const availH = Math.max(200, height - topUIHeight - bottomUIHeight);
 
     const divisor = Math.min(availW, availH) < 600 ? 16 : 18;
     tile = Math.min(MAX_TILE, Math.max(MIN_TILE, Math.floor(Math.min(availW, availH) / divisor)));
@@ -58,7 +63,7 @@ import { showLeaderboardModal } from './leaderboard.js';
     tile = Math.floor(Math.min(availW / cols, availH / rows));
 
     offsetX = Math.floor((width  - cols * tile) / 2);
-    offsetY = Math.floor((height - rows * tile) / 2 + 10);
+    offsetY = Math.floor(topUIHeight + (height - topUIHeight - bottomUIHeight - rows * tile) / 2);
 
     canvas.style.width  = width  + 'px';
     canvas.style.height = height + 'px';
@@ -81,7 +86,7 @@ import { showLeaderboardModal } from './leaderboard.js';
 
   // --- State ---
   let snake;
-  let prevCells = null; // snapshot of all segment positions before each step (enables smooth tail)
+  let prevCells = null;
   let apple;
   let queuedDir    = null;
   let interpolation = 0;
@@ -142,7 +147,7 @@ import { showLeaderboardModal } from './leaderboard.js';
     const initLen = 5;
     const cells = Array.from({ length: initLen }, (_, i) => ({ x: cx - i, y: cy }));
     snake = { cells, dir: Dir.RIGHT, lengthTiles: initLen };
-    prevCells = cells.map(c => ({ ...c })); // same positions → no movement on first draw
+    prevCells = cells.map(c => ({ ...c }));
     queuedDir = null;
   }
 
@@ -172,7 +177,6 @@ import { showLeaderboardModal } from './leaderboard.js';
     const head = snake.cells[0];
     const nh = { x: head.x + snake.dir.x, y: head.y + snake.dir.y };
 
-    // Snapshot ALL positions before modifying — this is what makes the tail smooth.
     prevCells     = snake.cells.map(c => ({ ...c }));
     interpolation = 0;
 
@@ -200,25 +204,24 @@ import { showLeaderboardModal } from './leaderboard.js';
       highscore = score;
       try { localStorage.setItem('snake_highscore', String(highscore)); } catch (_) {}
     }
-    if (finalScoreEl)  finalScoreEl.textContent = `🎉 Bravo ! Pommes récoltées : ${score} 🍎`;
-    if (gameOverPopup) gameOverPopup.classList.remove('hidden');
 
-    setTimeout(() => {
-      showLeaderboardModal({
-        gameId: 'snake',
-        gameTitle: 'Snake 🍎',
-        currentScore: score,
-        scoreFormatted: `${score} pommes`,
-        isLowerBetter: false,
-      });
-    }, 400);
+    // Trigger end game sequence (2-step modal)
+    triggerEndGameSequence({
+      gameId: 'snake',
+      gameTitle: 'Snake 🍎',
+      currentScore: score,
+      scoreFormatted: `${score} pommes`,
+      isLowerBetter: false,
+      onClose: () => {
+        startNewGame();
+      }
+    });
 
     return false;
   }
 
   function setPaused(p) { gamePaused = p; }
 
-  // --- Game loop ---
   function startNewGame() {
     resizeCanvas();
     spawnSnake();
@@ -229,11 +232,10 @@ import { showLeaderboardModal } from './leaderboard.js';
     score         = 0;
     gameRunning   = true;
     gamePaused    = false;
-    if (gameOverPopup) gameOverPopup.classList.add('hidden');
   }
 
   function update(timeMs) {
-    if (appleCounter) appleCounter.textContent = `Nombre de pommes obtenues : ${score}`;
+    if (appleCounter) appleCounter.textContent = `Pommes récoltées : ${score} 🍎`;
 
     if (!gameRunning || gamePaused) { draw(); requestAnimationFrame(update); return; }
 
@@ -263,15 +265,12 @@ import { showLeaderboardModal } from './leaderboard.js';
     const gridW = cols * tile;
     const gridH = rows * tile;
 
-    // Solid board drop shadow
     ctx.fillStyle = '#1a1a1a';
     ctx.fillRect(4, 4, gridW, gridH);
 
-    // Clean board field
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, gridW, gridH);
 
-    // Soft alternating pattern inside the grid
     ctx.fillStyle = 'rgba(235, 248, 220, 0.45)';
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -281,7 +280,6 @@ import { showLeaderboardModal } from './leaderboard.js';
       }
     }
 
-    // Grid lines
     ctx.beginPath();
     ctx.strokeStyle = 'rgba(0, 32, 0, 0.08)';
     ctx.lineWidth   = 1;
@@ -289,7 +287,6 @@ import { showLeaderboardModal } from './leaderboard.js';
     for (let r = 0; r <= rows; r++) { ctx.moveTo(0, r * tile); ctx.lineTo(gridW, r * tile); }
     ctx.stroke();
 
-    // Crisp outer border around the grid board
     ctx.strokeStyle = '#1a1a1a';
     ctx.lineWidth   = 2.5;
     ctx.strokeRect(0, 0, gridW, gridH);
@@ -329,9 +326,6 @@ import { showLeaderboardModal } from './leaderboard.js';
     const t     = Math.max(0, Math.min(1, interpolation));
     const cells = snake.cells;
 
-    // --- Head tip: slides from prevCells[0] (old head pos) to cells[0] (new head pos).
-    // prevCells[0] == cells[0] on init so there is no jump before the first step.
-    // This motion is always axis-aligned (the snake only moves along grid axes).
     const headTo   = gridToPixel(cells[0]);
     const headFrom = (prevCells && prevCells.length > 0) ? gridToPixel(prevCells[0]) : headTo;
     const headPt   = {
@@ -339,26 +333,21 @@ import { showLeaderboardModal } from './leaderboard.js';
       py: headFrom.py + (headTo.py - headFrom.py) * t,
     };
 
-    // --- Tail trailing edge.
     const tailCell   = cells[cells.length - 1];
     const tailCellPx = gridToPixel(tailCell);
     const isGrowing  = prevCells && prevCells.length < cells.length;
 
     let tailPt;
     if (isGrowing && cells.length >= 2) {
-      // Growth step: the new tail cell "sprouts" outward at mid-animation then settles at T.
-      // sin(π·t) is 0 at both t=0 and t=1, peaking at t=0.5 — clean boundaries, visible pulse.
       const prev2Px = gridToPixel(cells[cells.length - 2]);
-      const tdx     = (tailCellPx.px - prev2Px.px) / tile; // unit direction x (±1 or 0)
-      const tdy     = (tailCellPx.py - prev2Px.py) / tile; // unit direction y (±1 or 0)
+      const tdx     = (tailCellPx.px - prev2Px.px) / tile;
+      const tdy     = (tailCellPx.py - prev2Px.py) / tile;
       const bounce  = Math.sin(Math.PI * t) * tile * 0.55;
       tailPt = {
         px: tailCellPx.px + tdx * bounce,
         py: tailCellPx.py + tdy * bounce,
       };
     } else {
-      // Normal step: tail trailing edge retracts from the old tail position toward the new one.
-      // Both cells are adjacent on the same axis → always axis-aligned, never diagonal.
       const prevTailSrc = (prevCells && prevCells.length > 0)
         ? prevCells[Math.min(prevCells.length - 1, cells.length - 1)]
         : tailCell;
@@ -369,12 +358,6 @@ import { showLeaderboardModal } from './leaderboard.js';
       };
     }
 
-    // --- Point list:
-    //   [animated head] → [fixed body joints at grid positions] → [animated tail trailing edge]
-    //
-    // Crucially, every body joint (cells[1]..cells[n-1]) sits at its exact grid-aligned position.
-    // This means corner joints are always clean right angles — the polyline between them is
-    // horizontal or vertical, never diagonal, so there is no flickering at turns.
     const pts = [headPt];
     for (let i = 1; i < cells.length; i++) pts.push(gridToPixel(cells[i]));
     pts.push(tailPt);
@@ -397,7 +380,6 @@ import { showLeaderboardModal } from './leaderboard.js';
     ctx.strokeStyle = '#7ecb63';
     ctx.stroke();
 
-    // Eyes on the head
     const eyeOff = tile * 0.18;
     const eyeR   = Math.max(2, tile * 0.06);
     const dir    = snake.dir || Dir.RIGHT;
@@ -421,17 +403,4 @@ import { showLeaderboardModal } from './leaderboard.js';
   resizeCanvas();
   startNewGame();
   requestAnimationFrame(update);
-
-  popupRestartBtn?.addEventListener('click', () => {
-    gameOverPopup.classList.add('hidden');
-    startNewGame();
-  });
-
-  window.snakeGame = {
-    start:     startNewGame,
-    pause:     () => setPaused(true),
-    resume:    () => setPaused(false),
-    isRunning: () => gameRunning && !gamePaused,
-    getScore:  () => score,
-  };
 })();
