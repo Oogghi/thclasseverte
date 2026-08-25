@@ -1,16 +1,26 @@
 import { getBoxes } from './fetch_json.js';
 import { triggerEndGameSequence, showLeaderboardModal, getTopScores, getTopScoresAsync } from './leaderboard.js?v=2';
-import { playWordSuccessSound } from './sound.js';
+import { playDamageSound, playPickupSound, playWordSuccessSound } from './sound.js';
+import { bump, burst, floatLabel, screenHit } from './game-feedback.js';
 
 // --- Load words ---
 let words = [];
+
+function shuffleWords(list) {
+  for (let i = list.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [list[i], list[j]] = [list[j], list[i]];
+  }
+  return list;
+}
+
 async function loadWords() {
   try {
     const cases     = parseInt(new URLSearchParams(window.location.search).get('cases') || '1');
     const weekIndex = Math.floor((cases - 1) / 4) + 1;
     const boxes     = await getBoxes(weekIndex);
     if (!boxes) throw new Error('Semaine introuvable');
-    words = boxes.flatMap(b => b.words);
+    words = shuffleWords(boxes.flatMap(b => b.words));
   } catch (err) {
     console.error('Erreur chargement:', err);
     alert('Préviens le maitre si tu vois ceci !');
@@ -406,36 +416,45 @@ async function loadWords() {
     letters = [];
     if (!currentWord) return;
 
+    // Render the current word first so its real height can be included in the
+    // protected area. Letters must remain fully below every top HUD element.
+    updateWordDisplay();
+
+    const topUiBottom = [
+      document.querySelector('.header-title-container'),
+      wordDisplay,
+      document.querySelector('#hud'),
+    ].reduce((bottom, element) => {
+      if (!element) return bottom;
+      return Math.max(bottom, element.getBoundingClientRect().bottom);
+    }, 0);
+    const safeTop = topUiBottom + 8;
+    const firstSafeRow = Math.max(
+      1,
+      Math.ceil((safeTop + tile * 0.45 - offsetY) / tile - 0.5),
+    );
+
     const occupied = new Set(snake.cells.map(c => `${c.x},${c.y}`));
     const headNext = { x: snake.cells[0].x + (snake.dir?.x ?? 1), y: snake.cells[0].y + (snake.dir?.y ?? 0) };
     if (headNext.x >= 0 && headNext.x < cols && headNext.y >= 0 && headNext.y < rows)
       occupied.add(`${headNext.x},${headNext.y}`);
 
-    for (let i = 0; i < currentWord.length; i++) {
-      let pos, tries = 0;
-      do {
-        pos = {
-          x: Math.floor(Math.random() * (cols - 2)) + 1,
-          y: Math.floor(Math.random() * (rows - 2)) + 1,
-        };
-        tries++;
-      } while (occupied.has(`${pos.x},${pos.y}`) && tries < 2000);
-
-      if (tries >= 2000) {
-        let found = false;
-        outer: for (let ry = 1; ry < rows - 1; ry++) {
-          for (let rx = 1; rx < cols - 1; rx++) {
-            if (!occupied.has(`${rx},${ry}`)) { pos = { x: rx, y: ry }; found = true; break outer; }
-          }
-        }
-        if (!found) { console.warn('Board too full to place letter.'); break; }
+    const availablePositions = [];
+    for (let y = firstSafeRow; y < rows - 1; y++) {
+      for (let x = 1; x < cols - 1; x++) {
+        if (!occupied.has(`${x},${y}`)) availablePositions.push({ x, y });
       }
+    }
+    shuffleWords(availablePositions);
 
-      occupied.add(`${pos.x},${pos.y}`);
+    for (let i = 0; i < currentWord.length; i++) {
+      const pos = availablePositions[i];
+      if (!pos) {
+        console.warn('Board too full to place every letter below the top UI.');
+        break;
+      }
       letters.push({ ...pos, char: currentWord[i].toUpperCase() });
     }
-
-    updateWordDisplay();
   }
 
   // --- Word flow ---
@@ -487,10 +506,16 @@ async function loadWords() {
       const letter   = letters[letterIdx];
       const expected = currentWord[nextLetterIndex].toUpperCase();
       if (letter.char === expected) {
+        const pickupAt = gridToPixel(letter);
         letters.splice(letterIdx, 1);
         nextLetterIndex++;
         score++;
         snake.lengthTiles++;
+
+        playPickupSound();
+        bump(wordDisplay);
+        burst(pickupAt.px, pickupAt.py, { color: '#f4b942', count: 5, distance: Math.min(32, tile) });
+        floatLabel(letter.char, pickupAt.px, pickupAt.py - tile * .3);
 
         updateWordDisplay(false);
 
@@ -513,6 +538,8 @@ async function loadWords() {
   // --- Collision / death / victory ---
   function loseLife() {
     lives--;
+    playDamageSound();
+    screenHit();
     updateHUD();
     if (livesCounter) {
       livesCounter.classList.remove('lives-lost');

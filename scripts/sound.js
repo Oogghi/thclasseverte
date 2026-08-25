@@ -1,10 +1,9 @@
-// scripts/sound.js
-// Neo-brutalist audio feedback using Web Audio API
-
 let audioCtx = null;
+let userHasInteracted = false;
 let lastHoverTime = 0;
 
-function getAudioContext() {
+function unlockAudioContext() {
+  userHasInteracted = true;
   if (!audioCtx) {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (AudioContextClass) {
@@ -12,7 +11,31 @@ function getAudioContext() {
     }
   }
   if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume();
+    audioCtx.resume().catch(() => {});
+  }
+}
+
+if (typeof window !== 'undefined') {
+  const unlockEvents = ['pointerdown', 'keydown', 'touchstart', 'click'];
+  const onFirstInteraction = () => {
+    unlockAudioContext();
+    unlockEvents.forEach(evt => window.removeEventListener(evt, onFirstInteraction, { capture: true }));
+  };
+  unlockEvents.forEach(evt => window.addEventListener(evt, onFirstInteraction, { capture: true, passive: true }));
+}
+
+function getAudioContext() {
+  if (!userHasInteracted && (!audioCtx || audioCtx.state === 'suspended')) {
+    return null; // Don't trigger browser autoplay warning before user gesture
+  }
+  if (!audioCtx) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass) {
+      audioCtx = new AudioContextClass();
+    }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
   }
   return audioCtx;
 }
@@ -62,6 +85,42 @@ export function playClickSound() {
 
     osc.start();
     osc.stop(ctx.currentTime + 0.04);
+  } catch (_) {}
+}
+
+export function playPickupSound() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(520, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(720, ctx.currentTime + 0.065);
+    gain.gain.setValueAtTime(0.035, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.09);
+  } catch (_) {}
+}
+
+export function playDamageSound() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(190, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(105, ctx.currentTime + 0.13);
+    gain.gain.setValueAtTime(0.045, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.14);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.14);
   } catch (_) {}
 }
 

@@ -1,0 +1,132 @@
+/* Shared finishing layer: quiet motion, clearer hierarchy, and accessible feedback. */
+:root {
+  --feedback-green: #2e7d32;
+  --feedback-gold: #f4b942;
+  --feedback-red: #d94a4a;
+  --motion-fast: 150ms;
+  --motion-medium: 280ms;
+}
+
+* { box-sizing: border-box; }
+
+button, a, input, select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a, .tile, .vk-key {
+  transition:
+    transform var(--motion-fast) ease,
+    box-shadow var(--motion-fast) ease,
+    filter var(--motion-fast) ease;
+}
+
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 3px solid #2785e8;
+  outline-offset: 3px;
+}
+
+button:active, a:active, .vk-key:active {
+  transform: translate(2px, 2px) scale(.985);
+}
+
+canvas {
+  touch-action: none;
+}
+
+.feedback-bump {
+  animation: feedback-bump 320ms cubic-bezier(.2, .8, .25, 1);
+}
+
+.feedback-success {
+  animation: feedback-success 420ms cubic-bezier(.18, .85, .3, 1);
+}
+
+.feedback-error {
+  animation: feedback-error 300ms ease;
+}
+
+.feedback-float {
+  position: fixed;
+  z-index: 10000;
+  pointer-events: none;
+  padding: 5px 9px;
+  border: 2px solid #1a1a1a;
+  border-radius: 999px;
+  background: #fff;
+  color: #153115;
+  box-shadow: 2px 2px 0 #1a1a1a;
+  font: 800 14px/1 'Outfit', system-ui, sans-serif;
+  transform: translate(-50%, 0);
+  animation: feedback-float 650ms cubic-bezier(.18, .8, .3, 1) forwards;
+}
+
+.feedback-float.is-error {
+  background: #ffe0dc;
+  color: #8e2424;
+}
+
+.feedback-particle {
+  position: fixed;
+  z-index: 9999;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: var(--particle-color, var(--feedback-gold));
+  transform: translate(-50%, -50%);
+  animation: feedback-particle 520ms ease-out forwards;
+}
+
+body.feedback-screen-hit::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+  background: rgba(217, 74, 74, .12);
+  animation: feedback-screen-hit 240ms ease-out forwards;
+}
+
+@keyframes feedback-bump {
+  0%, 100% { transform: scale(1); }
+  42% { transform: scale(1.08); }
+}
+
+@keyframes feedback-success {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  45% { transform: translateY(-2px) scale(1.035); filter: brightness(1.08); }
+}
+
+@keyframes feedback-error {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(-4px); }
+  65% { transform: translateX(4px); }
+}
+
+@keyframes feedback-float {
+  0% { opacity: 0; transform: translate(-50%, 8px) scale(.9); }
+  22% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -28px) scale(.98); }
+}
+
+@keyframes feedback-particle {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.3);
+  }
+}
+
+@keyframes feedback-screen-hit {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}

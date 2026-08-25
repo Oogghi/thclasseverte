@@ -1,8 +1,9 @@
 import { getBoxes } from './fetch_json.js';
 import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js?v=2';
 import { playClickSound, playWordSuccessSound } from './sound.js';
+import { celebrateElement, markError } from './game-feedback.js';
 
-const DICT_URL = '../mots.txt';
+const DICT_URL = 'mots.txt';
 const MAX_ROWS = Infinity;
 const TARGET_WORDS_COUNT = 8;
 
@@ -249,6 +250,7 @@ function submitGuess() {
   if (!dictSet?.has(guess)) {
     showMessage('Mot invalide !', true);
     shakeRow(currentRow);
+    markError(grid.children[currentRow * wordLen]);
     return;
   }
 
@@ -299,6 +301,7 @@ function submitGuess() {
 
   if (status.every(s => s === 'correct')) {
     playWordSuccessSound();
+    celebrateElement(grid.children[currentRow * wordLen + guess.length - 1], 'Bien joué !');
     wordsCompleted++;
     totalTriesCount += currentWordTries;
     currentWordTries = 0;

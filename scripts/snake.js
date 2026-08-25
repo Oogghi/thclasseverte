@@ -1,4 +1,6 @@
 import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js?v=2';
+import { playPickupSound, playDamageSound } from './sound.js';
+import { bump, burst, floatLabel, screenHit } from './game-feedback.js';
 
 (() => {
   'use strict';
@@ -88,6 +90,8 @@ import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js?v
   let snake;
   let prevCells = null;
   let apple;
+  let appleSpawnTime = 0;
+  let pickupPulse = null;
   let queuedDir    = null;
   let interpolation = 0;
   let lastMoveTime  = 0;
@@ -159,6 +163,7 @@ import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js?v
       y = Math.floor(Math.random() * (rows - 2)) + 1;
     } while (occupied.has(`${x},${y}`) && ++tries < 1000);
     apple = { x, y };
+    appleSpawnTime = performance.now();
   }
 
   function gridToPixel(cell) {
@@ -188,8 +193,14 @@ import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js?v
     snake.cells.unshift(nh);
 
     if (nh.x === apple.x && nh.y === apple.y) {
+      const eatenAt = gridToPixel(apple);
       score++;
       snake.lengthTiles++;
+      pickupPulse = { ...eatenAt, startedAt: performance.now() };
+      playPickupSound();
+      bump(appleCounter);
+      burst(eatenAt.px, eatenAt.py, { color: '#e4574f', count: 7, distance: Math.min(38, tile) });
+      floatLabel('+1', eatenAt.px, eatenAt.py - tile * .35);
       spawnApple();
     }
 
@@ -200,6 +211,8 @@ import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js?v
   function handleDeath() {
     gameRunning = false;
     gamePaused  = false;
+    playDamageSound();
+    screenHit();
     if (score > highscore) {
       highscore = score;
       try { localStorage.setItem('snake_highscore', String(highscore)); } catch (_) {}
@@ -296,7 +309,9 @@ import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js?v
 
   function drawApple() {
     const { px, py } = gridToPixel(apple);
-    const r = tile * 0.38;
+    const age = Math.min(1, (performance.now() - appleSpawnTime) / 220);
+    const pop = 1 + Math.sin(age * Math.PI) * .16;
+    const r = tile * 0.38 * pop;
 
     const g = ctx.createRadialGradient(px - r * 0.3, py - r * 0.4, r * 0.1, px, py, r);
     g.addColorStop(0, '#ff6b6b');
@@ -318,6 +333,20 @@ import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js?v
     ctx.beginPath();
     ctx.ellipse(0, 0, r * 0.25, r * 0.12, 0.6, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+  }
+
+  function drawPickupPulse() {
+    if (!pickupPulse) return;
+    const age = (performance.now() - pickupPulse.startedAt) / 320;
+    if (age >= 1) { pickupPulse = null; return; }
+    ctx.save();
+    ctx.globalAlpha = 1 - age;
+    ctx.strokeStyle = '#e4574f';
+    ctx.lineWidth = Math.max(2, tile * .08 * (1 - age));
+    ctx.beginPath();
+    ctx.arc(pickupPulse.px, pickupPulse.py, tile * (.28 + age * .55), 0, Math.PI * 2);
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -396,6 +425,7 @@ import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js?v
   function draw() {
     drawGridBackground();
     if (apple) drawApple();
+    drawPickupPulse();
     drawSnakeInterpolated();
   }
 

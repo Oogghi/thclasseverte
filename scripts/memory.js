@@ -1,6 +1,7 @@
 import { getBoxes } from './fetch_json.js';
 import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js?v=2';
 import { playClickSound, playWordSuccessSound } from './sound.js';
+import { celebrateElement, markError } from './game-feedback.js';
 
 // --- DOM ---
 const GRID = document.getElementById('grid');
@@ -126,6 +127,8 @@ function checkMatch() {
     playWordSuccessSound();
     firstCard.classList.add('matched');
     secondCard.classList.add('matched');
+    celebrateElement(firstCard);
+    celebrateElement(secondCard, '+1 paire');
     matchesCount++;
 
     if (matchesCount === words.length) {
@@ -139,6 +142,8 @@ function checkMatch() {
       });
     }
   } else {
+    markError(firstCard);
+    markError(secondCard);
     firstCard.classList.remove('flipped');
     secondCard.classList.remove('flipped');
   }

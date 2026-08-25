@@ -1,6 +1,7 @@
 import { getBoxes } from './fetch_json.js';
 import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js?v=2';
 import { playClickSound, playHoverSound, playWordSuccessSound } from './sound.js';
+import { celebrateElement } from './game-feedback.js';
 
 /* ---- DOM ---- */
 const gridEl     = document.getElementById("grid");
@@ -243,7 +244,10 @@ function validateSelection() {
     selection.forEach(t => { t.classList.remove("selected"); t.classList.add("found"); });
     const foundNorm = normalizedWords.includes(mot) ? mot : rev;
     const li = document.getElementById("word-" + sanitizeId(foundNorm));
-    if (li) li.classList.add("found");
+    if (li) {
+      li.classList.add("found");
+      celebrateElement(li, 'Trouvé !');
+    }
     checkWin();
   }
 
