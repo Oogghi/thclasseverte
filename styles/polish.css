@@ -92,6 +92,16 @@ body.feedback-screen-hit::after {
   42% { transform: scale(1.08); }
 }
 
+.word-target.feedback-bump,
+.feedback-bump.centered-x {
+  animation-name: feedback-bump-centered;
+}
+
+@keyframes feedback-bump-centered {
+  0%, 100% { transform: translateX(-50%) scale(1); }
+  42% { transform: translateX(-50%) scale(1.08); }
+}
+
 @keyframes feedback-success {
   0%, 100% { transform: scale(1); filter: brightness(1); }
   45% { transform: translateY(-2px) scale(1.035); filter: brightness(1.08); }
@@ -129,4 +139,42 @@ body.feedback-screen-hit::after {
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
   }
+}
+
+/* Universal Bottom Action (Pause Button) */
+.bottom-actions {
+  position: fixed;
+  bottom: 12px;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: fit-content;
+  max-width: max-content;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 4px 12px;
+  z-index: 10;
+}
+
+.bottom-actions button {
+  border: var(--border);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font: 800 14px/1 'Outfit', sans-serif;
+  cursor: pointer;
+  padding: 10px 20px;
+  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.15s ease;
+}
+
+.bottom-actions button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.bottom-actions button:active {
+  transform: translate(1px, 1px);
+  box-shadow: var(--shadow-active);
 }

@@ -65,7 +65,110 @@ function getPeriodKeys(date = new Date()) {
   };
 }
 
-function filterScores(entries = [], period = 'week', isLowerBetter = false) {
+/**
+ * Multi-criteria tie-breaking comparison for each game.
+ * Breaks ties using secondary efficiency metrics and timestamp.
+ */
+export function compareLeaderboardEntries(a, b, gameId = '', isLowerBetter = false) {
+  const am = a.extraMetrics || {};
+  const bm = b.extraMetrics || {};
+
+  switch (gameId) {
+    case 'wordle': {
+      // P1: Number of tries (lower is better)
+      const triesA = a.score;
+      const triesB = b.score;
+      if (triesA !== triesB) return triesA - triesB;
+      // P2: Time elapsed (lower is better)
+      const timeA = am.timeElapsed ?? 999999;
+      const timeB = bm.timeElapsed ?? 999999;
+      if (timeA !== timeB) return timeA - timeB;
+      // P3: First achieved
+      return (a.timestamp || 0) - (b.timestamp || 0);
+    }
+
+    case 'memory': {
+      // P1: Number of moves (lower is better)
+      const parseMoves = (entry) => {
+        if (typeof entry.extraMetrics?.moves === 'number') return entry.extraMetrics.moves;
+        const m = String(entry.scoreFormatted || '').match(/(\d+)\s*coups/);
+        return m ? parseInt(m[1], 10) : entry.score;
+      };
+      const movesA = parseMoves(a);
+      const movesB = parseMoves(b);
+      if (movesA !== movesB) return movesA - movesB;
+      // P2: Time elapsed (lower is better)
+      const timeA = am.timeElapsed ?? a.score;
+      const timeB = bm.timeElapsed ?? b.score;
+      if (timeA !== timeB) return timeA - timeB;
+      return (a.timestamp || 0) - (b.timestamp || 0);
+    }
+
+    case 'mots-meles': {
+      // P1: Time elapsed with tenths precision (lower is better)
+      if (a.score !== b.score) return a.score - b.score;
+      // P2: Selection errors (lower is better)
+      const errA = am.errors ?? 0;
+      const errB = bm.errors ?? 0;
+      if (errA !== errB) return errA - errB;
+      return (a.timestamp || 0) - (b.timestamp || 0);
+    }
+
+    case 'snakemots':
+    case 'pacman-mots':
+    case 'space-invaders-mots': {
+      // P1: Words completed (higher is better)
+      const wordsA = am.wordsCount ?? a.score;
+      const wordsB = bm.wordsCount ?? b.score;
+      if (wordsA !== wordsB) return wordsB - wordsA;
+      // P2: Lives remaining (higher is better)
+      const livesA = am.livesRemaining ?? 0;
+      const livesB = bm.livesRemaining ?? 0;
+      if (livesA !== livesB) return livesB - livesA;
+      // P3: Time elapsed (lower is better)
+      const timeA = am.timeElapsed ?? 999999;
+      const timeB = bm.timeElapsed ?? 999999;
+      if (timeA !== timeB) return timeA - timeB;
+      return (a.timestamp || 0) - (b.timestamp || 0);
+    }
+
+    case 'snake': {
+      // P1: Apples (higher is better)
+      if (a.score !== b.score) return b.score - a.score;
+      // P2: Difficulty (higher is better)
+      const diffA = am.difficulty ?? 0;
+      const diffB = bm.difficulty ?? 0;
+      if (diffA !== diffB) return diffB - diffA;
+      // P3: Time elapsed (lower is better)
+      const timeA = am.timeElapsed ?? 999999;
+      const timeB = bm.timeElapsed ?? 999999;
+      if (timeA !== timeB) return timeA - timeB;
+      return (a.timestamp || 0) - (b.timestamp || 0);
+    }
+
+    case 'pacman':
+    case 'space-invaders': {
+      // P1: Score (higher is better)
+      if (a.score !== b.score) return b.score - a.score;
+      // P2: Lives remaining (higher is better)
+      const livesA = am.livesRemaining ?? 0;
+      const livesB = bm.livesRemaining ?? 0;
+      if (livesA !== livesB) return livesB - livesA;
+      return (a.timestamp || 0) - (b.timestamp || 0);
+    }
+
+    default: {
+      if (isLowerBetter) {
+        if (a.score !== b.score) return a.score - b.score;
+      } else {
+        if (a.score !== b.score) return b.score - a.score;
+      }
+      return (a.timestamp || 0) - (b.timestamp || 0);
+    }
+  }
+}
+
+function filterScores(entries = [], period = 'week', isLowerBetter = false, gameId = '') {
   const now = new Date();
   const { weekKey, monthKey, yearKey } = getPeriodKeys(now);
 
@@ -77,10 +180,7 @@ function filterScores(entries = [], period = 'week', isLowerBetter = false) {
     return true;
   });
 
-  filtered.sort((a, b) => {
-    if (isLowerBetter) return a.score - b.score;
-    return b.score - a.score;
-  });
+  filtered.sort((a, b) => compareLeaderboardEntries(a, b, gameId, isLowerBetter));
 
   return filtered.slice(0, 10);
 }
@@ -88,16 +188,16 @@ function filterScores(entries = [], period = 'week', isLowerBetter = false) {
 export function getTopScores(gameId, period = 'week', isLowerBetter = false) {
   const allData = loadLocalLeaderboard();
   const gameEntries = allData[gameId] || [];
-  return filterScores(gameEntries, period, isLowerBetter);
+  return filterScores(gameEntries, period, isLowerBetter, gameId);
 }
 
 export async function getTopScoresAsync(gameId, period = 'week', isLowerBetter = false) {
   const allData = await fetchGlobalLeaderboard();
   const gameEntries = allData[gameId] || [];
-  return filterScores(gameEntries, period, isLowerBetter);
+  return filterScores(gameEntries, period, isLowerBetter, gameId);
 }
 
-export async function addScoreRecord(gameId, playerName, scoreVal, scoreFormatted, isLowerBetter = false) {
+export async function addScoreRecord(gameId, playerName, scoreVal, scoreFormatted, isLowerBetter = false, extraMetrics = null) {
   const name = (playerName || '').trim() || 'Anonyme';
   const { weekKey, monthKey, yearKey, timestamp } = getPeriodKeys();
 
@@ -106,6 +206,7 @@ export async function addScoreRecord(gameId, playerName, scoreVal, scoreFormatte
     name,
     score: Number(scoreVal),
     scoreFormatted: scoreFormatted || String(scoreVal),
+    extraMetrics: extraMetrics || {},
     timestamp,
     weekKey,
     monthKey,
@@ -167,6 +268,7 @@ export function triggerEndGameSequence({
   currentScore = 0,
   scoreFormatted = '',
   isLowerBetter = false,
+  extraMetrics = null,
   onClose = null,
 }) {
   ensureCssLoaded();
@@ -212,7 +314,7 @@ export function triggerEndGameSequence({
     let savedId = null;
     if (shouldSave && inputEl) {
       const pName = inputEl.value.trim() || 'Anonyme';
-      const entry = await addScoreRecord(gameId, pName, currentScore, scoreFormatted, isLowerBetter);
+      const entry = await addScoreRecord(gameId, pName, currentScore, scoreFormatted, isLowerBetter, extraMetrics);
       savedId = entry.id;
     }
 
@@ -302,7 +404,7 @@ export function showLeaderboardModal({
 
   async function renderTable() {
     const populate = (entries) => {
-      const topScores = filterScores(entries, currentPeriod, isLowerBetter);
+      const topScores = filterScores(entries, currentPeriod, isLowerBetter, gameId);
       if (topScores.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="3" class="empty-msg">Aucun score pour le moment. Sois le premier ! 🌟</td></tr>`;
         return;

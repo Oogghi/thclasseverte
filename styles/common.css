@@ -33,3 +33,8 @@ body {
   text-align: center;
   width: 100%;
 }
+
+/* Universal Visibility Utility */
+.hidden {
+  display: none !important;
+}

@@ -1,13 +1,16 @@
-import { getBoxes } from './fetch_json.js';
-import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js?v=2';
-import { playClickSound, playHoverSound, playWordSuccessSound } from './sound.js';
+// scripts/mots-meles.js
+// Word Search (Mots-Mêlés) game for TH Classe Verte.
+import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js';
+import { playWordSuccessSound } from './sound.js';
 import { celebrateElement } from './game-feedback.js';
+import { loadWeekWords, normalizeWord, shuffle } from './words-utils.js';
 
-/* ---- DOM ---- */
-const gridEl     = document.getElementById("grid");
-const secretSpan = document.getElementById("secret");
+/* ---- DOM Elements ---- */
+const gridEl     = document.getElementById('grid');
+const secretSpan = document.getElementById('secret');
+const wordListUl = document.getElementById('wordList');
 
-/* ---- Grid constants ---- */
+/* ---- Constants ---- */
 const GRID_SIZE  = 12;
 const DIRECTIONS = [
   [0, 1], [1, 0], [0, -1], [-1, 0],
@@ -20,67 +23,45 @@ let selectedWords = [];
 let selection     = [];
 let selecting     = false;
 let selDirection  = null;
-let startTime     = Date.now();
-
-/* ---- Helpers ---- */
-function getWeekPositionFromURL() {
-  const params = new URLSearchParams(window.location.search);
-  const cases  = parseInt(params.get('cases') || '1', 10);
-  return Math.floor((cases - 1) / 4) + 1;
-}
-
-function normalizeWord(word) {
-  return word.normalize("NFD").replace(/\p{Diacritic}/gu, "").toUpperCase();
-}
+let startTime     = performance.now();
+let errorCount    = 0;
 
 function sanitizeId(str) {
-  return normalizeWord(str).replace(/[^A-Z0-9]/g, "_");
+  return normalizeWord(str).replace(/[^A-Z0-9]/g, '_');
 }
 
-function shuffleArray(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-}
-
-/* ---- Grid creation ---- */
+/* ---- Grid Creation ---- */
 function createGrid() {
-  gridEl.innerHTML = "";
+  if (!gridEl) return;
+  gridEl.innerHTML = '';
   tiles = [];
   for (let x = 0; x < GRID_SIZE; x++) {
     for (let y = 0; y < GRID_SIZE; y++) {
-      const tile = document.createElement("div");
-      tile.className  = "tile";
-      tile.dataset.x  = x;
-      tile.dataset.y  = y;
+      const tile = document.createElement('div');
+      tile.className  = 'tile';
+      tile.dataset.x  = String(x);
+      tile.dataset.y  = String(y);
       gridEl.appendChild(tile);
       tiles.push(tile);
     }
   }
 }
 
-/* ---- Load words ---- */
+/* ---- Load Words ---- */
 async function loadWords() {
-  try {
-    const boxes = await getBoxes(getWeekPositionFromURL());
-    if (!boxes) throw new Error('No week found');
+  const rawWords = await loadWeekWords();
+  selectedWords = rawWords
+    .filter(w => w && w.length >= 3 && w.length <= GRID_SIZE)
+    .slice(0, 10)
+    .map(w => ({ original: w, normalized: normalizeWord(w) }));
 
-    const words = boxes.flatMap(box => box.words);
-    shuffleArray(words);
-
-    selectedWords = words
-      .slice(0, Math.min(10, words.length))
-      .map(w => ({ original: w, normalized: normalizeWord(w) }));
-  } catch (e) {
-    console.error("Erreur chargement:", e);
-    const fallback = ["Erreur", "Chien", "Maison", "Fleur", "Soleil",
-                      "Arbre", "Oiseau", "Nuage", "Riviere", "Montagne"];
+  if (!selectedWords.length) {
+    const fallback = ['Maison', 'Arbre', 'Soleil', 'Ecole', 'Jardin', 'Fleur', 'Oiseau', 'Nuage'];
     selectedWords = fallback.map(w => ({ original: w, normalized: normalizeWord(w) }));
   }
 }
 
-/* ---- Word placement in grid ---- */
+/* ---- Word Placement in Grid ---- */
 function placeWords(words) {
   const validWords = words
     .map(w => w.normalized)
@@ -88,7 +69,6 @@ function placeWords(words) {
     .sort((a, b) => b.length - a.length);
 
   selectedWords = selectedWords.filter(w => w.normalized.length <= GRID_SIZE);
-
   const gridMatrix = Array.from({ length: GRID_SIZE }, () => Array(GRID_SIZE).fill(''));
 
   function canFit(word, r, c, dr, dc) {
@@ -115,7 +95,7 @@ function placeWords(words) {
         }
       }
     }
-    shuffleArray(options);
+    shuffle(options);
 
     for (const { r, c, dr, dc } of options) {
       const placedCoords = [];
@@ -148,19 +128,19 @@ function placeWords(words) {
   });
 }
 
-/* ---- Word list display ---- */
+/* ---- Word List Display ---- */
 function showWordList(words) {
-  const ul = document.getElementById("wordList");
-  ul.innerHTML = "";
+  if (!wordListUl) return;
+  wordListUl.innerHTML = '';
   words.forEach(word => {
-    const li = document.createElement("li");
+    const li = document.createElement('li');
     li.textContent = word.original;
-    li.id          = "word-" + sanitizeId(word.normalized);
-    ul.appendChild(li);
+    li.id          = 'word-' + sanitizeId(word.normalized);
+    wordListUl.appendChild(li);
   });
 }
 
-/* ---- Selection logic ---- */
+/* ---- Selection Logic ---- */
 function coordsOf(tile) {
   return [parseInt(tile.dataset.x, 10), parseInt(tile.dataset.y, 10)];
 }
@@ -184,10 +164,10 @@ function addSelection(tile) {
     const first = selection[0];
     const last  = selection[selection.length - 1];
     if (tile === last) {
-      last.classList.remove("selected");
+      last.classList.remove('selected');
       selection.pop();
     } else if (tile === first) {
-      first.classList.remove("selected");
+      first.classList.remove('selected');
       selection.shift();
     }
     selDirection = selection.length >= 2 ? directionBetween(selection[0], selection[1]) : null;
@@ -196,7 +176,7 @@ function addSelection(tile) {
 
   if (selection.length === 0) {
     selection.push(tile);
-    tile.classList.add("selected");
+    tile.classList.add('selected');
     selDirection = null;
     return;
   }
@@ -205,7 +185,7 @@ function addSelection(tile) {
     if (!isAdjacent(selection[0], tile)) return;
     selDirection = directionBetween(selection[0], tile);
     selection.push(tile);
-    tile.classList.add("selected");
+    tile.classList.add('selected');
     return;
   }
 
@@ -219,15 +199,15 @@ function addSelection(tile) {
 
   if (tx === lx + dx && ty === ly + dy) {
     selection.push(tile);
-    tile.classList.add("selected");
+    tile.classList.add('selected');
   } else if (tx === fx - dx && ty === fy - dy) {
     selection.unshift(tile);
-    tile.classList.add("selected");
+    tile.classList.add('selected');
   }
 }
 
 function clearSelection() {
-  selection.forEach(t => t.classList.remove("selected"));
+  selection.forEach(t => t.classList.remove('selected'));
   selection    = [];
   selDirection = null;
 }
@@ -235,65 +215,105 @@ function clearSelection() {
 function validateSelection() {
   if (!selection.length) return;
 
-  const mot = normalizeWord(selection.map(t => t.textContent).join(""));
-  const rev = normalizeWord([...selection].reverse().map(t => t.textContent).join(""));
+  const mot = normalizeWord(selection.map(t => t.textContent).join(''));
+  const rev = normalizeWord([...selection].reverse().map(t => t.textContent).join(''));
   const normalizedWords = selectedWords.map(w => w.normalized);
 
   if (normalizedWords.includes(mot) || normalizedWords.includes(rev)) {
     playWordSuccessSound();
-    selection.forEach(t => { t.classList.remove("selected"); t.classList.add("found"); });
+    selection.forEach(t => {
+      t.classList.remove('selected');
+      t.classList.add('found');
+    });
     const foundNorm = normalizedWords.includes(mot) ? mot : rev;
-    const li = document.getElementById("word-" + sanitizeId(foundNorm));
+    const li = document.getElementById('word-' + sanitizeId(foundNorm));
     if (li) {
-      li.classList.add("found");
+      li.classList.add('found');
       celebrateElement(li, 'Trouvé !');
     }
     checkWin();
+  } else if (selection.length >= 3) {
+    errorCount++;
   }
 
   clearSelection();
   selecting = false;
 }
 
-/* ---- Win check & 2-step end flow ---- */
 function checkWin() {
   const allFound = selectedWords.every(w => {
-    const li = document.getElementById("word-" + sanitizeId(w.normalized));
-    return li?.classList.contains("found");
+    const li = document.getElementById('word-' + sanitizeId(w.normalized));
+    return li?.classList.contains('found');
   });
+
   if (allFound) {
-    secretSpan.textContent = "Bravo ! Tu as tout trouvé ! 🌟";
-    const elapsedSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
-    
-    // Déclenche directement la séquence 2 étapes (Pas d'ancienne popup!)
+    if (secretSpan) secretSpan.textContent = 'Bravo ! Tu as tout trouvé ! 🌟';
+    const elapsedSec = Number(Math.max(0.5, (performance.now() - startTime) / 1000).toFixed(1));
+
     triggerEndGameSequence({
       gameId: 'mots-meles',
       gameTitle: 'Mots Mêlés 🧩',
       currentScore: elapsedSec,
-      scoreFormatted: `${elapsedSec} sec`,
+      scoreFormatted: `${elapsedSec.toFixed(1)}s${errorCount > 0 ? ` (${errorCount} err)` : ' (0 faute)'}`,
       isLowerBetter: true,
+      extraMetrics: {
+        timeElapsed: elapsedSec,
+        errors: errorCount,
+      },
     });
   }
 }
 
-/* ---- Events ---- */
-gridEl.addEventListener("mousedown", e => {
-  if (!e.target.classList.contains("tile")) return;
-  selecting = true;
-  clearSelection();
-  addSelection(e.target);
-});
+/* ---- Event Listeners ---- */
+if (gridEl) {
+  gridEl.addEventListener('mousedown', e => {
+    const tile = e.target.closest('.tile');
+    if (!tile) return;
+    selecting = true;
+    clearSelection();
+    addSelection(tile);
+  });
 
-gridEl.addEventListener("mouseover", e => {
-  if (selecting && e.target.classList.contains("tile")) addSelection(e.target);
-});
+  gridEl.addEventListener('mouseover', e => {
+    if (selecting) {
+      const tile = e.target.closest('.tile');
+      if (tile) addSelection(tile);
+    }
+  });
 
-document.addEventListener("mouseup", () => {
+  // Touch support for tablet/mobile
+  gridEl.addEventListener('touchstart', e => {
+    const touch = e.touches[0];
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    const tile = target?.closest('.tile');
+    if (tile) {
+      selecting = true;
+      clearSelection();
+      addSelection(tile);
+    }
+  }, { passive: true });
+
+  gridEl.addEventListener('touchmove', e => {
+    if (!selecting) return;
+    const touch = e.touches[0];
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    const tile = target?.closest('.tile');
+    if (tile && !selection.includes(tile)) {
+      addSelection(tile);
+    }
+  }, { passive: true });
+
+  gridEl.addEventListener('touchend', () => {
+    if (selecting) validateSelection();
+  });
+}
+
+document.addEventListener('mouseup', () => {
   if (selecting) validateSelection();
 });
 
-document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("btn-show-leaderboard")?.addEventListener("click", () => {
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-show-leaderboard')?.addEventListener('click', () => {
     const elapsedSec = Math.round((Date.now() - startTime) / 1000);
     showLeaderboardModal({
       gameId: 'mots-meles',
@@ -305,7 +325,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-/* ---- Init ---- */
+/* ---- Initialization ---- */
 async function init() {
   createGrid();
   await loadWords();
@@ -313,8 +333,9 @@ async function init() {
     placeWords(selectedWords);
     showWordList(selectedWords);
   }
-  secretSpan.textContent = "";
-  startTime = Date.now();
+  if (secretSpan) secretSpan.textContent = '';
+  startTime = performance.now();
+  errorCount = 0;
 }
 
 init();

@@ -1,7 +1,9 @@
-import { getBoxes } from './fetch_json.js';
-import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js?v=2';
-import { playClickSound, playWordSuccessSound } from './sound.js';
+// scripts/memory.js
+// Memory card-matching game for TH Classe Verte.
+import { triggerEndGameSequence, showLeaderboardModal } from './leaderboard.js';
+import { playWordSuccessSound } from './sound.js';
 import { celebrateElement, markError } from './game-feedback.js';
+import { loadWeekWords, shuffle } from './words-utils.js';
 
 // --- DOM ---
 const GRID = document.getElementById('grid');
@@ -17,51 +19,46 @@ let triesCount   = 0;
 let matchesCount = 0;
 let startTime    = Date.now();
 
-// --- Helpers ---
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-}
-
-function getWeekPositionFromURL() {
-  const cases = parseInt(new URLSearchParams(window.location.search).get('cases') || '1');
-  return Math.floor((cases - 1) / 4) + 1;
-}
-
 // --- Load words ---
 async function loadWords() {
-  try {
-    const boxes = await getBoxes(getWeekPositionFromURL());
-    if (!boxes) throw new Error('Semaine introuvable');
-    words = boxes.flatMap(b => b.words);
-  } catch (err) {
-    console.error('Erreur chargement:', err);
-    words = Array(16).fill('Erreur');
+  words = await loadWeekWords();
+  // Limit to 8 words (16 cards) for standard 4x4 memory grid
+  if (words.length > 8) {
+    words = words.slice(0, 8);
   }
   startGame();
 }
 
-// --- Font sizing: shrink until word fits on one line ---
+// --- Font sizing: cleanly fit word on tile without layout thrashing ---
 function fitTextToTile(backSpan, tileEl) {
-  const style   = getComputedStyle(tileEl);
-  const padH    = parseFloat(style.paddingLeft || 8) + parseFloat(style.paddingRight || 8);
-  const maxSize = 26;
-  const minSize = 10;
+  if (!backSpan || !tileEl) return;
+  const tileWidth  = tileEl.clientWidth || 100;
+  const tileHeight = tileEl.clientHeight || 100;
+  const wordLength = (backSpan.textContent || '').length || 6;
 
-  let fs = Math.min(maxSize, Math.max(minSize, Math.floor(tileEl.clientHeight * 0.45)));
-  backSpan.style.fontSize   = fs + 'px';
+  const maxSize = Math.min(26, Math.floor(tileHeight * 0.4));
+  const minSize = 11;
+
+  // Approximate character width ratio for Outfit bold uppercase is ~0.62
+  const estimatedSize = Math.floor((tileWidth - 16) / (wordLength * 0.62));
+  let fs = Math.max(minSize, Math.min(maxSize, estimatedSize));
+
+  backSpan.style.fontSize   = `${fs}px`;
   backSpan.style.whiteSpace = 'nowrap';
   backSpan.style.lineHeight = '1';
 
-  for (let i = 0; i < 100 && fs > minSize && backSpan.scrollWidth > backSpan.clientWidth; i++) {
-    backSpan.style.fontSize = --fs + 'px';
+  // Single correction step if text slightly overflows
+  if (backSpan.scrollWidth > backSpan.clientWidth && fs > minSize) {
+    fs = Math.max(minSize, Math.floor(fs * (backSpan.clientWidth / backSpan.scrollWidth)));
+    backSpan.style.fontSize = `${fs}px`;
   }
 }
 
 function adjustAllCardFonts() {
-  tiles.forEach(tile => fitTextToTile(tile.querySelector('.back'), tile));
+  tiles.forEach(tile => {
+    const backSpan = tile.querySelector('.back');
+    if (backSpan) fitTextToTile(backSpan, tile);
+  });
 }
 
 // --- Build game board ---
@@ -78,7 +75,7 @@ function startGame() {
   tiles = [];
 
   for (const word of paired) {
-    const div  = document.createElement('div');
+    const div = document.createElement('div');
     div.className    = 'tile';
     div.dataset.word = word;
 
@@ -87,7 +84,7 @@ function startGame() {
 
     const back = document.createElement('span');
     back.className   = 'back';
-    back.textContent = word.toUpperCase();
+    back.textContent = String(word).toUpperCase();
 
     div.appendChild(front);
     div.appendChild(back);
@@ -133,12 +130,20 @@ function checkMatch() {
 
     if (matchesCount === words.length) {
       const elapsedSec = Math.max(1, Math.round((Date.now() - startTime) / 1000));
+      const m = Math.floor(elapsedSec / 60);
+      const s = String(elapsedSec % 60).padStart(2, '0');
+      const timeFormatted = `${m}m${s}s`;
+
       triggerEndGameSequence({
         gameId: 'memory',
         gameTitle: 'Memory 🃏',
-        currentScore: elapsedSec,
-        scoreFormatted: `${elapsedSec}s (${flipsCount} coups)`,
+        currentScore: flipsCount,
+        scoreFormatted: `${flipsCount} coups • ${timeFormatted}`,
         isLowerBetter: true,
+        extraMetrics: {
+          moves: flipsCount,
+          timeElapsed: elapsedSec,
+        },
       });
     }
   } else {
@@ -167,7 +172,7 @@ document.getElementById('btn-show-leaderboard')?.addEventListener('click', () =>
 let resizeTimer = null;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(adjustAllCardFonts, 120);
+  resizeTimer = setTimeout(adjustAllCardFonts, 100);
 });
 
 // --- Init ---

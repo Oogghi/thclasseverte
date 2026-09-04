@@ -1,3 +1,5 @@
+import { getAdminKey } from './crypto-auth.js?v=20260903_v3';
+
 const API_KEY      = '$2a$10$dteCnNJw2l8XJtW/rGVlB.5Fe1I4izviOgeaDDg3B60j30rTvZzcW';
 const BIN_ID       = '6a180afaddf5aa59f76f42a3';
 const URL          = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
@@ -14,13 +16,23 @@ async function _get() {
 }
 
 async function _update(updater, retries = 3) {
+  const writeKey = getAdminKey();
+  if (!writeKey) {
+    throw new Error('Action refusée : session admin non authentifiée.');
+  }
+  const writeHeaders = {
+    'Content-Type': 'application/json',
+    'X-Access-Key': writeKey,
+    'X-Bin-Versioning': 'false',
+  };
+
   for (let i = 0; i < retries; i++) {
     const current = await _get();
     const updated = updater(structuredClone(current));
     updated.version = (current.version ?? 0) + 1;
     const res = await fetch(URL, {
       method  : 'PUT',
-      headers : HEADERS,
+      headers : writeHeaders,
       body    : JSON.stringify(updated),
     });
     if (res.ok) return (await res.json()).record;

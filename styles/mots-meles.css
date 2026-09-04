@@ -1,3 +1,4 @@
+/* styles/mots-meles.css */
 @import url('common.css');
 
 :root {
@@ -5,8 +6,13 @@
   --muted: #445544;
   --yellow: #ffd77a;
   --grey: #889988;
-  --gap: 6px;
-  --size: clamp(28px, 3.8vw, 48px);
+  --gap: clamp(3px, 0.6vh, 6px);
+  /* Sized by BOTH viewport height and width so 12 rows never exceed available screen height on laptops */
+  --size: min(
+    48px,
+    clamp(20px, calc((100vh - 165px) / 12.8), 48px),
+    clamp(20px, calc((100vw - 320px) / 13), 48px)
+  );
 }
 
 * { box-sizing: border-box; }
@@ -17,7 +23,9 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: 24px 16px;
+  padding: clamp(8px, 1.8vh, 22px) clamp(10px, 2vw, 16px);
+  background: var(--bg);
+  overflow-x: hidden;
 }
 
 .wrap {
@@ -26,20 +34,21 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
 }
 
 /* Header Title Container */
 .header-title-container {
-  margin-top: 12px;
-  margin-bottom: 24px;
+  margin-top: 0;
+  margin-bottom: clamp(6px, 1.1vh, 16px);
 }
 
 h1.instructions {
   margin: 0;
-  font-size: clamp(1.8rem, 3.8vw, 2.6rem);
+  font-size: clamp(1.2rem, 2.4vw, 2.2rem);
   font-weight: 800;
   color: var(--text);
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
 .alert {
@@ -48,13 +57,13 @@ h1.instructions {
   background-color: var(--accent-yellow);
   color: var(--text);
   border: var(--border);
-  box-shadow: 3px 3px 0px #1a1a1a;
-  padding: 0.75rem 1.6rem;
-  border-radius: 14px;
-  margin-top: 4px;
-  margin-bottom: 2rem;
+  box-shadow: 2.5px 2.5px 0px #1a1a1a;
+  padding: clamp(4px, 0.8vh, 8px) clamp(12px, 1.8vw, 22px);
+  border-radius: 12px;
+  margin-top: 0;
+  margin-bottom: clamp(8px, 1.5vh, 18px);
   font-weight: 700;
-  font-size: 1.02rem;
+  font-size: clamp(0.82rem, 1vw, 0.96rem);
 }
 
 /* Game Area: Grille à GAUCHE, Liste à DROITE */
@@ -63,10 +72,10 @@ h1.instructions {
   flex-direction: row;
   justify-content: center;
   align-items: stretch;
-  gap: 32px;
-  margin-top: 8px;
+  gap: clamp(14px, 2.4vw, 32px);
+  margin-top: 0;
   width: 100%;
-  max-width: 900px;
+  max-width: 920px;
 }
 
 /* Grid on the LEFT */
@@ -86,13 +95,13 @@ h1.instructions {
   justify-content: space-evenly;
   list-style: none;
   margin: 0;
-  padding: 16px 20px;
+  padding: clamp(8px, 1.2vh, 16px) clamp(10px, 1.5vw, 18px);
   background: #ffffff;
   border: var(--border);
   border-radius: 16px;
   box-shadow: var(--shadow);
   text-align: left;
-  min-width: 220px;
+  min-width: clamp(160px, 20vw, 250px);
   max-width: 280px;
   flex: 1;
 }
@@ -100,11 +109,14 @@ h1.instructions {
 .wordlist li {
   font-family: 'Outfit', sans-serif;
   font-weight: 700;
-  font-size: clamp(0.95rem, 1.3vw, 1.15rem);
-  padding: 6px 12px;
+  font-size: clamp(0.82rem, 1.1vw, 1.05rem);
+  padding: clamp(2px, 0.4vh, 6px) clamp(6px, 0.8vw, 12px);
   border-radius: 8px;
   transition: background-color 0.2s ease, transform 0.15s ease;
   cursor: default;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .wordlist li.found {
@@ -114,19 +126,20 @@ h1.instructions {
   font-weight: 800;
 }
 
+/* Tiles */
 .tile {
   background: var(--tile);
-  border: 2px solid #1a1a1a;
-  box-shadow: 2px 2px 0px #1a1a1a;
+  border: clamp(1.5px, 0.25vw, 2px) solid #1a1a1a;
+  box-shadow: clamp(1px, 0.25vw, 2px) clamp(1px, 0.25vw, 2px) 0px #1a1a1a;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'Outfit', sans-serif;
   font-weight: 800;
-  font-size: clamp(14px, 2.2vw, 22px);
+  font-size: calc(var(--size) * 0.48);
   text-transform: uppercase;
   user-select: none;
-  border-radius: 10px;
+  border-radius: clamp(5px, calc(var(--size) * 0.22), 10px);
   color: var(--text);
   transition: background .15s ease, transform .1s ease;
   cursor: pointer;
@@ -136,88 +149,88 @@ h1.instructions {
   background: var(--yellow);
   color: #000000;
   transform: translate(-1px, -1px);
-  box-shadow: 3px 3px 0px #1a1a1a;
+  box-shadow: 2.5px 2.5px 0px #1a1a1a;
 }
 
 .tile.found {
   background: var(--green);
   color: #ffffff;
-  box-shadow: 2px 2px 0px #1a1a1a;
+  box-shadow: 1.5px 1.5px 0px #1a1a1a;
 }
 
 .secret {
-  margin-top: 16px;
-  font-size: 1.3rem;
+  margin-top: clamp(6px, 1vh, 14px);
+  font-size: clamp(1rem, 1.6vw, 1.25rem);
   font-weight: 800;
   color: var(--green);
-  min-height: 28px;
+  min-height: 24px;
 }
 
-/* Bouton Classement Tout en bas */
-.bottom-leaderboard-container {
-  margin-top: 24px;
-  margin-bottom: 12px;
-  display: flex;
-  justify-content: center;
-  width: 100%;
-}
-
-.btn-leaderboard-bottom {
-  padding: 12px 28px;
-  font-weight: 800;
-  font-size: 1.1rem;
-  border: var(--border);
-  background: var(--accent-yellow);
-  border-radius: 12px;
-  cursor: pointer;
-  box-shadow: var(--shadow);
-  transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.15s ease;
-  color: var(--text);
-  font-family: inherit;
-}
-
-.btn-leaderboard-bottom:hover {
-  background: var(--accent-yellow-hover);
-  transform: translate(-1.5px, -1.5px);
-  box-shadow: var(--shadow-hover);
-}
-
-.btn-leaderboard-bottom:active {
-  transform: translate(1px, 1px);
-  box-shadow: var(--shadow-active);
-}
-
-@media (min-width: 1440px) {
+/* --- Laptop / Compact Screen Adjustments --- */
+@media (max-height: 740px) and (min-width: 769px) {
   :root {
-    --size: clamp(38px, 3.2vw, 56px);
-    --gap: 8px;
+    --gap: 3.5px;
+    --size: clamp(20px, calc((100vh - 145px) / 12.8), 42px);
   }
-
-  .wrap {
-    width: min(1100px, 90vw);
+  body {
+    padding: 8px 12px;
   }
-
-  .game-area {
-    gap: 40px;
-    max-width: 1050px;
+  .header-title-container {
+    margin-bottom: 4px;
   }
-
+  h1.instructions {
+    font-size: 1.35rem;
+  }
+  .alert {
+    padding: 3px 12px;
+    margin-bottom: 8px;
+    font-size: 0.84rem;
+  }
   .wordlist {
-    min-width: 260px;
-    max-width: 320px;
-    padding: 24px 28px;
+    padding: 6px 12px;
+  }
+  .wordlist li {
+    padding: 2px 6px;
+    font-size: 0.88rem;
   }
 }
 
+@media (max-height: 580px) {
+  .alert {
+    display: none; /* Hide secondary banner on ultra-short viewports to prevent scrolling */
+  }
+  :root {
+    --gap: 2.5px;
+    --size: clamp(18px, calc((100vh - 85px) / 12.8), 34px);
+  }
+}
+
+/* --- Mobile / Portrait Screens (< 768px) --- */
 @media (max-width: 768px) {
+  body {
+    padding: 12px 8px;
+    align-items: flex-start;
+  }
+  :root {
+    --gap: 4px;
+    --size: clamp(20px, calc((100vw - 28px - 11 * 4px) / 12), 34px);
+  }
   .game-area {
     flex-direction: column;
     align-items: center;
-    gap: 20px;
+    gap: 14px;
   }
   .wordlist {
-    width: 95%;
-    max-width: 400px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    width: 100%;
+    max-width: 440px;
     min-height: auto;
+    padding: 10px 14px;
+  }
+  .wordlist li {
+    padding: 4px 8px;
+    font-size: 0.9rem;
   }
 }

@@ -1,355 +1,111 @@
-import { getBoxes } from './fetch_json.js';
-import { triggerEndGameSequence, showLeaderboardModal, getTopScores, getTopScoresAsync } from './leaderboard.js?v=2';
+// scripts/snakemots.js
+// Educational Snake Mots game for TH Classe Verte.
+import { triggerEndGameSequence } from './leaderboard.js';
 import { playDamageSound, playPickupSound, playWordSuccessSound } from './sound.js';
 import { bump, burst, floatLabel, screenHit } from './game-feedback.js';
+import { loadWeekWords, shuffle } from './words-utils.js';
+import { Dir, isOpposite, createSnakeGrid, setupSnakeControls, drawSnake } from './snake-core.js';
+import {
+  setupPauseManager,
+  setupDifficultyMenu,
+  setupWordCountdown,
+  createWordTargetDisplay,
+  isTypingInInput,
+} from './game-ui.js';
 
-// --- Load words ---
-let words = [];
-
-function shuffleWords(list) {
-  for (let i = list.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [list[i], list[j]] = [list[j], list[i]];
-  }
-  return list;
-}
-
-async function loadWords() {
-  try {
-    const cases     = parseInt(new URLSearchParams(window.location.search).get('cases') || '1');
-    const weekIndex = Math.floor((cases - 1) / 4) + 1;
-    const boxes     = await getBoxes(weekIndex);
-    if (!boxes) throw new Error('Semaine introuvable');
-    words = shuffleWords(boxes.flatMap(b => b.words));
-  } catch (err) {
-    console.error('Erreur chargement:', err);
-    alert('Préviens le maitre si tu vois ceci !');
-    words = Array(16).fill('Erreur');
-  }
-}
-
-// ============================================================
-// Game (IIFE to keep all game state local)
-// ============================================================
 (() => {
   'use strict';
 
-  // --- DOM ---
+  // --- DOM Elements ---
   const canvas = document.querySelector('#game') || (() => {
     const el = document.createElement('canvas');
     el.id = 'game';
     document.body.appendChild(el);
     return el;
   })();
-  const ctx = canvas.getContext('2d', { alpha: false });
 
-  const wordDisplay            = document.querySelector('#word-display');
-  const wordsCounter           = document.querySelector('#words-counter');
-  const livesCounter           = document.querySelector('#lives-counter');
-  const countdownOverlay       = document.querySelector('#countdown-overlay');
-  const countdownText          = document.querySelector('#countdown-text');
-  const countdownNumber        = document.querySelector('#countdown-number');
+  const wordDisplayEl  = document.querySelector('#word-display');
+  const wordsCounterEl = document.querySelector('#words-counter');
+  const livesCounterEl = document.querySelector('#lives-counter');
+  const pauseButton    = document.querySelector('#btn-pause');
 
-  const diffMenuOverlay        = document.querySelector('#difficulty-menu-overlay');
-  const diffButtons            = document.querySelectorAll('.btn-diff');
-  const btnChangeDifficulty    = document.querySelector('#btn-change-difficulty');
-  const btnOpenFullLeaderboard = document.querySelector('#btn-open-full-leaderboard');
-
-  // --- Game state ---
-  let snake;
-  let prevCells = null;
-  let letters   = [];
+  // --- State ---
+  let words = [];
   let currentWordIndex = 0;
-  let currentWord      = '';
-  let nextLetterIndex  = 0;
+  let currentWord = '';
+  let nextLetterIndex = 0;
+  let letters = [];
+
+  const MAX_LIVES = 3;
+  let lives = MAX_LIVES;
+  let score = 0;
+  let gameRunning = false;
+  let gameStartTime = 0;
 
   const BASE_SPEED = 5.5;
   let speedTilesPerSec = BASE_SPEED;
-  let moveInterval     = 1 / BASE_SPEED;
-  let lastMoveTime     = 0;
-  let interpolation    = 0;
-  const MAX_LIVES      = 3;
-  let gameRunning      = false;
-  let gamePaused       = false;
-  let score            = 0;
-  let lives            = MAX_LIVES;
-  let highscore        = parseInt(localStorage.getItem('snake_highscore') || '0', 10);
+  let moveInterval = 1 / BASE_SPEED;
+  let lastMoveTime = 0;
+  let interpolation = 0;
 
-  // --- CSS variables & URL params ---
-  const rootStyle  = getComputedStyle(document.documentElement);
-  const BG_COLOR   = rootStyle.getPropertyValue('--bg').trim()        || '#fbffd8';
-  const GRID_COLOR = rootStyle.getPropertyValue('--grid-line').trim() || 'rgba(0,32,0,0.12)';
-
-  const urlParams  = new URLSearchParams(window.location.search);
-  let difficulte   = Math.max(0, Math.min(2, parseInt(urlParams.get('difficulte') || '0', 10)));
-
-  // --- Countdown helpers ---
-  let isCountingDown = false;
-  let countdownInterval = null;
-
-  function hideCountdown() {
-    if (!countdownOverlay) return;
-    countdownOverlay.style.display = 'none';
-    countdownOverlay.classList.add('hidden');
-    if (countdownText)   countdownText.textContent   = '';
-    if (countdownNumber) countdownNumber.textContent = '';
-  }
-
-  function showCountdown() {
-    if (!countdownOverlay) return;
-    countdownOverlay.style.display = 'flex';
-    countdownOverlay.classList.remove('hidden');
-  }
-
-  function runCountdown(word) {
-    return new Promise((resolve) => {
-      if (!countdownOverlay || !countdownNumber || !countdownText) { resolve(); return; }
-
-      isCountingDown = true;
-      const normalizedWord = word.toUpperCase();
-
-      if (difficulte === 0 || difficulte === 1) {
-        countdownText.textContent = `Tu dois reconstruire le mot : "${normalizedWord}"`;
-      } else {
-        countdownText.textContent = `Tu dois reconstruire un mot mystère (${normalizedWord.length} lettres) !`;
-      }
-
-      updateWordDisplay(true); // Preview mode during countdown
-
-      countdownNumber.textContent = '5';
-      showCountdown();
-      let n = 5;
-
-      if (countdownInterval) clearInterval(countdownInterval);
-      countdownInterval = setInterval(() => {
-        n--;
-        if (n > 0) {
-          countdownNumber.textContent = n;
-        } else {
-          clearInterval(countdownInterval);
-          countdownInterval = null;
-          isCountingDown = false;
-          hideCountdown();
-          updateWordDisplay(false); // Reveal/mask animation for game start
-          resolve();
-        }
-      }, 1000);
-    });
-  }
-
-  // --- Difficulty & Leaderboard UI ---
-  async function renderSideLeaderboard() {
-    const tableBody = document.querySelector('#side-scores-body');
-    if (!tableBody) return;
-
-    const populate = (scores) => {
-      if (!scores || scores.length === 0) {
-        tableBody.innerHTML = `<tr><td colspan="3" class="empty-side-msg">Aucun score cette semaine. Sois le 1er ! 🌟</td></tr>`;
-        return;
-      }
-
-      tableBody.innerHTML = scores.slice(0, 5).map((item, idx) => {
-        const rank = idx + 1;
-        let rankDisplay = `#${rank}`;
-        if (rank === 1) rankDisplay = '🥇';
-        else if (rank === 2) rankDisplay = '🥈';
-        else if (rank === 3) rankDisplay = '🥉';
-
-        return `
-          <tr>
-            <td><span style="font-weight:800;">${rankDisplay}</span></td>
-            <td>${escapeHTML(item.name)}</td>
-            <td style="text-align:right;"><strong>${escapeHTML(item.scoreFormatted)}</strong></td>
-          </tr>
-        `;
-      }).join('');
-    };
-
-    populate(getTopScores('snakemots', 'week', false));
-    const globalScores = await getTopScoresAsync('snakemots', 'week', false);
-    populate(globalScores);
-  }
-
-  function escapeHTML(str) {
-    return String(str || '').replace(/[&<>"']/g, match => {
-      const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-      return map[match];
-    });
-  }
-
-  function showDifficultyMenu() {
-    setPaused(true);
-    renderSideLeaderboard();
-    if (diffMenuOverlay) {
-      diffMenuOverlay.style.display = 'flex';
-      diffMenuOverlay.classList.remove('hidden');
-    }
-  }
-
-  function hideDifficultyMenu() {
-    if (diffMenuOverlay) {
-      diffMenuOverlay.style.display = 'none';
-      diffMenuOverlay.classList.add('hidden');
-    }
-  }
-
-  function openLeaderboard() {
-    const isDiffMenuOpen = diffMenuOverlay && !diffMenuOverlay.classList.contains('hidden');
-    const wasRunning = gameRunning && !gamePaused;
-    if (wasRunning) setPaused(true);
-    hideDifficultyMenu();
-
-    showLeaderboardModal({
-      gameId: 'snakemots',
-      gameTitle: 'Snake Mots 🐍',
-      currentScore: currentWordIndex || 0,
-      scoreFormatted: `${currentWordIndex || 0} mots`,
-      isLowerBetter: false,
-      onClose: () => {
-        if (isDiffMenuOpen || !gameRunning) {
-          showDifficultyMenu();
-        } else if (wasRunning) {
-          lastMoveTime = performance.now() / 1000;
-          setPaused(false);
-        }
-      }
-    });
-  }
-
-  document.getElementById('btn-show-leaderboard')?.addEventListener('click', openLeaderboard);
-  btnOpenFullLeaderboard?.addEventListener('click', openLeaderboard);
-
-  diffButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      difficulte = parseInt(btn.getAttribute('data-diff') || '0', 10);
-      hideDifficultyMenu();
-      startNewGame();
-    });
-  });
-
-  btnChangeDifficulty?.addEventListener('click', () => {
-    showDifficultyMenu();
-  });
-
-  diffMenuOverlay?.addEventListener('click', (e) => {
-    if (e.target === diffMenuOverlay) {
-      if (gameRunning) {
-        hideDifficultyMenu();
-        setPaused(false);
-        lastMoveTime = performance.now() / 1000;
-      } else {
-        difficulte = 0;
-        hideDifficultyMenu();
-        startNewGame();
-      }
-    }
-  });
-
-  // --- Grid sizing ---
-  let DPR = Math.max(1, window.devicePixelRatio || 1);
-  let width = 0, height = 0;
-  let cols = 0, rows = 0;
-  let tile = 30;
-  const MIN_TILE = 16, MAX_TILE = 96;
-  let offsetX = 0, offsetY = 0;
-
-  function resizeCanvas() {
-    DPR    = Math.max(1, window.devicePixelRatio || 1);
-    width  = window.innerWidth;
-    height = window.innerHeight;
-
-    const marginX = 24;
-    const marginY = 32;
-    const availW = Math.max(200, width - marginX * 2);
-    const availH = Math.max(200, height - marginY * 2);
-
-    const divisor = Math.min(availW, availH) < 600 ? 16 : 18;
-    tile = Math.min(MAX_TILE, Math.max(MIN_TILE, Math.floor(Math.min(availW, availH) / divisor)));
-
-    cols = Math.max(8, Math.floor(availW / tile));
-    rows = Math.max(6, Math.floor(availH / tile));
-    tile = Math.floor(Math.min(availW / cols, availH / rows));
-
-    offsetX = Math.floor((width  - cols * tile) / 2);
-    offsetY = Math.floor((height - rows * tile) / 2 + 10);
-
-    canvas.style.width  = width  + 'px';
-    canvas.style.height = height + 'px';
-    canvas.width  = Math.floor(width  * DPR);
-    canvas.height = Math.floor(height * DPR);
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    ctx.imageSmoothingEnabled = true;
-  }
-
-  window.addEventListener('resize', () => { resizeCanvas(); draw(); });
-
-  // --- Directions ---
-  const Dir = {
-    UP:    { x:  0, y: -1 },
-    DOWN:  { x:  0, y:  1 },
-    LEFT:  { x: -1, y:  0 },
-    RIGHT: { x:  1, y:  0 },
-  };
-  const isOpposite = (a, b) => a.x + b.x === 0 && a.y + b.y === 0;
-
-  function isTypingInInput() {
-    const active = document.activeElement;
-    if (active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName)) return true;
-    if (document.querySelector('.leaderboard-overlay:not(.hidden)')) return true;
-    if (diffMenuOverlay && !diffMenuOverlay.classList.contains('hidden')) return true;
-    return false;
-  }
-
-  // --- Input: keyboard ---
+  let snake;
+  let prevCells = null;
   let queuedDir = null;
+  let pickupPulse = null;
 
-  window.addEventListener('keydown', (e) => {
-    if (isTypingInInput() || isCountingDown) return;
-    if (e.key === 'Escape') { togglePause(); return; }
-    if (['ArrowUp',    'w', 'W'].includes(e.key)) trySetDir(Dir.UP);
-    if (['ArrowDown',  's', 'S'].includes(e.key)) trySetDir(Dir.DOWN);
-    if (['ArrowLeft',  'a', 'A'].includes(e.key)) trySetDir(Dir.LEFT);
-    if (['ArrowRight', 'd', 'D'].includes(e.key)) trySetDir(Dir.RIGHT);
+  // --- Grid & Canvas Metrics ---
+  const grid = createSnakeGrid(canvas, { topUI: 90, bottomUI: 65 });
+  const ctx = grid.getContext();
+  let { cols, rows, tile, offsetX, offsetY, width, height } = grid.resize();
+
+  function onResize() {
+    const m = grid.resize();
+    cols = m.cols; rows = m.rows; tile = m.tile;
+    offsetX = m.offsetX; offsetY = m.offsetY;
+    width = m.width; height = m.height;
+    draw();
+  }
+  window.addEventListener('resize', onResize);
+
+  // --- Word UI & Countdown ---
+  const wordDisplay = createWordTargetDisplay({
+    containerEl: wordDisplayEl,
+    wordsCounterEl,
+    livesCounterEl,
+    maxLives: MAX_LIVES,
   });
 
-  function trySetDir(d) {
-    if (!snake || isCountingDown) return;
-    if (!snake.dir)               { snake.dir = d; return; }
-    if (!isOpposite(snake.dir, d)) queuedDir = d;
-  }
+  const countdown = setupWordCountdown();
 
-  // --- Input: touch ---
-  let touchStart = null;
-  window.addEventListener('touchstart', (e) => {
-    if (!e.touches.length || isCountingDown) return;
-    touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-  }, { passive: true });
-  window.addEventListener('touchend', (e) => {
-    if (!touchStart || isCountingDown) return;
-    const dx = e.changedTouches[0].clientX - touchStart.x;
-    const dy = e.changedTouches[0].clientY - touchStart.y;
-    touchStart = null;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) < 20) return;
-    if (Math.abs(dx) > Math.abs(dy)) trySetDir(dx > 0 ? Dir.RIGHT : Dir.LEFT);
-    else                              trySetDir(dy > 0 ? Dir.DOWN  : Dir.UP);
-  }, { passive: true });
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden && gameRunning && !gamePaused && !isCountingDown) setPaused(true);
+  // --- Pause Manager ---
+  const pauseManager = setupPauseManager({
+    onPause: () => {},
+    onResume: () => { lastMoveTime = performance.now() / 1000; },
+    isGameRunning: () => gameRunning && !countdown.isActive(),
+    pauseButton,
   });
 
-  // --- Snake helpers ---
-  function spawnSnake(keepLength = false) {
-    const cx      = Math.floor(cols / 2);
-    const cy      = Math.floor(rows / 2);
-    const initLen = 5;
-    const len     = (keepLength && snake?.lengthTiles) ? snake.lengthTiles : initLen;
-    const cells   = Array.from({ length: initLen }, (_, i) => ({ x: cx - i, y: cy }));
-    snake     = { cells, dir: Dir.RIGHT, lengthTiles: len };
-    prevCells = cells.map(c => ({ ...c }));
-    queuedDir = null;
-  }
+  // --- Difficulty & Leaderboard Menu ---
+  const diffMenu = setupDifficultyMenu({
+    gameId: 'snakemots',
+    gameTitle: 'Snake Mots 🐍',
+    defaultDiff: 0,
+    onStart: (selectedDiff) => {
+      startNewGame(selectedDiff);
+    },
+  });
 
+  // --- Controls ---
+  setupSnakeControls({
+    onDirection: (d) => {
+      if (!snake || pauseManager.isPaused() || countdown.isActive()) return;
+      if (!snake.dir) { snake.dir = d; return; }
+      if (!isOpposite(snake.dir, d)) queuedDir = d;
+    },
+    isInputActive: () => isTypingInInput() || countdown.isActive(),
+  });
+
+  // --- Helpers ---
   function gridToPixel(cell) {
     return {
       px: offsetX + (cell.x + 0.5) * tile,
@@ -357,131 +113,69 @@ async function loadWords() {
     };
   }
 
-  function updateWordDisplay(isCountdown = false) {
-    if (!wordDisplay || !currentWord) return;
-    const normalizedWord = currentWord.toUpperCase();
-    let html = '';
-
-    for (let i = 0; i < normalizedWord.length; i++) {
-      const char = normalizedWord[i];
-      const isCollected = i < nextLetterIndex;
-
-      let displayChar = char;
-      let slotClass = 'letter-slot';
-
-      if (difficulte === 0) {
-        slotClass += isCollected ? ' collected' : ' pending';
-      } else if (difficulte === 1) {
-        if (isCountdown) {
-          displayChar = char;
-          slotClass += ' countdown-preview';
-        } else {
-          if (isCollected) {
-            displayChar = char;
-            slotClass += ' collected revealed';
-          } else {
-            displayChar = '_';
-            slotClass += ' hidden-slot';
-          }
-        }
-      } else if (difficulte === 2) {
-        if (isCollected || nextLetterIndex >= currentWord.length) {
-          displayChar = char;
-          slotClass += ' collected revealed';
-        } else {
-          displayChar = '_';
-          slotClass += ' hidden-slot mystery';
-        }
-      }
-
-      html += `<span class="${slotClass}">${displayChar}</span>`;
-    }
-
-    wordDisplay.innerHTML = html;
+  function spawnSnake(keepLength = false) {
+    const cx = Math.floor(cols / 2);
+    const cy = Math.floor(rows / 2);
+    const initLen = 5;
+    const len = (keepLength && snake?.lengthTiles) ? snake.lengthTiles : initLen;
+    const cells = Array.from({ length: initLen }, (_, i) => ({ x: cx - i, y: cy }));
+    snake = { cells, dir: Dir.RIGHT, lengthTiles: len };
+    prevCells = cells.map(c => ({ ...c }));
+    queuedDir = null;
   }
 
-  function heartsHTML() {
-    return Array.from({ length: MAX_LIVES }, (_, i) =>
-      `<span class="heart ${i < lives ? 'full' : 'empty'}">♥</span>`
-    ).join('');
-  }
-
-  function updateHUD() {
-    if (wordsCounter) wordsCounter.textContent = `Mots : ${Math.min(currentWordIndex, words.length)}/${words.length}`;
-    if (livesCounter) livesCounter.innerHTML = heartsHTML();
-  }
-
-  // --- Letter placement ---
-  function placeLettersForCurrentWord() {
+  function spawnLetters() {
     letters = [];
     if (!currentWord) return;
 
-    // Render the current word first so its real height can be included in the
-    // protected area. Letters must remain fully below every top HUD element.
-    updateWordDisplay();
-
-    const topUiBottom = [
-      document.querySelector('.header-title-container'),
-      wordDisplay,
-      document.querySelector('#hud'),
-    ].reduce((bottom, element) => {
-      if (!element) return bottom;
-      return Math.max(bottom, element.getBoundingClientRect().bottom);
-    }, 0);
-    const safeTop = topUiBottom + 8;
-    const firstSafeRow = Math.max(
-      1,
-      Math.ceil((safeTop + tile * 0.45 - offsetY) / tile - 0.5),
-    );
-
     const occupied = new Set(snake.cells.map(c => `${c.x},${c.y}`));
-    const headNext = { x: snake.cells[0].x + (snake.dir?.x ?? 1), y: snake.cells[0].y + (snake.dir?.y ?? 0) };
-    if (headNext.x >= 0 && headNext.x < cols && headNext.y >= 0 && headNext.y < rows)
-      occupied.add(`${headNext.x},${headNext.y}`);
+    const uppercaseWord = currentWord.toUpperCase();
 
-    const availablePositions = [];
-    for (let y = firstSafeRow; y < rows - 1; y++) {
-      for (let x = 1; x < cols - 1; x++) {
-        if (!occupied.has(`${x},${y}`)) availablePositions.push({ x, y });
-      }
-    }
-    shuffleWords(availablePositions);
+    for (let i = 0; i < uppercaseWord.length; i++) {
+      let x, y, tries = 0;
+      do {
+        x = Math.floor(Math.random() * (cols - 2)) + 1;
+        y = Math.floor(Math.random() * (rows - 2)) + 1;
+      } while (
+        (occupied.has(`${x},${y}`) || letters.some(l => l.x === x && l.y === y)) &&
+        ++tries < 1000
+      );
 
-    for (let i = 0; i < currentWord.length; i++) {
-      const pos = availablePositions[i];
-      if (!pos) {
-        console.warn('Board too full to place every letter below the top UI.');
-        break;
-      }
-      letters.push({ ...pos, char: currentWord[i].toUpperCase() });
+      letters.push({
+        char: uppercaseWord[i],
+        index: i,
+        x,
+        y,
+        spawnTime: performance.now(),
+        collected: false,
+      });
     }
   }
 
-  // --- Word flow ---
-  async function startWord() {
-    if (currentWordIndex >= words.length) { handleVictory(); return; }
+  async function loadNextWord() {
+    if (currentWordIndex >= words.length) {
+      handleWin();
+      return;
+    }
 
-    currentWord      = words[currentWordIndex];
-    nextLetterIndex  = 0;
-    letters          = [];
-
-    updateHUD();
-
-    if (!snake?.cells) spawnSnake(false);
-
-    placeLettersForCurrentWord();
-    setPaused(true);
-    await runCountdown(currentWord);
-
-    speedTilesPerSec = BASE_SPEED;
-    moveInterval     = 1 / speedTilesPerSec;
+    currentWord = words[currentWordIndex];
+    nextLetterIndex = 0;
+    wordDisplay.updateWordsCounter(currentWordIndex, words.length);
 
     spawnSnake(true);
-    setPaused(false);
+    spawnLetters();
+
+    // 5-second countdown preview
+    await countdown.runCountdown(
+      currentWord,
+      diffMenu.getDifficulty(),
+      () => wordDisplay.renderWord(currentWord, nextLetterIndex, diffMenu.getDifficulty(), true),
+      () => wordDisplay.renderWord(currentWord, nextLetterIndex, diffMenu.getDifficulty(), false)
+    );
+
     lastMoveTime = performance.now() / 1000;
   }
 
-  // --- Step ---
   function stepSnake() {
     if (queuedDir) {
       if (!isOpposite(snake.dir, queuedDir)) snake.dir = queuedDir;
@@ -489,162 +183,167 @@ async function loadWords() {
     }
 
     const head = snake.cells[0];
-    const nh   = { x: head.x + snake.dir.x, y: head.y + snake.dir.y };
+    const nh = { x: head.x + snake.dir.x, y: head.y + snake.dir.y };
 
-    prevCells     = snake.cells.map(c => ({ ...c }));
+    prevCells = snake.cells.map(c => ({ ...c }));
     interpolation = 0;
 
-    if (nh.x < 0 || nh.x >= cols || nh.y < 0 || nh.y >= rows) return handleCollision();
+    // Wall collision
+    if (nh.x < 0 || nh.x >= cols || nh.y < 0 || nh.y >= rows) return handleCollision(true);
 
+    // Self collision
     const occupied = new Set(snake.cells.map(c => `${c.x},${c.y}`));
-    if (occupied.has(`${nh.x},${nh.y}`)) return handleCollision();
+    if (occupied.has(`${nh.x},${nh.y}`)) return handleCollision(true);
 
     snake.cells.unshift(nh);
 
-    const letterIdx = letters.findIndex(l => l.x === nh.x && l.y === nh.y);
-    if (letterIdx !== -1) {
-      const letter   = letters[letterIdx];
-      const expected = currentWord[nextLetterIndex].toUpperCase();
-      if (letter.char === expected) {
-        const pickupAt = gridToPixel(letter);
-        letters.splice(letterIdx, 1);
+    // Letter collisions
+    const hitIndex = letters.findIndex(l => !l.collected && l.x === nh.x && l.y === nh.y);
+    if (hitIndex !== -1) {
+      const hit = letters[hitIndex];
+      const hitPos = gridToPixel(hit);
+
+      if (hit.index === nextLetterIndex) {
+        // Correct letter eaten!
+        hit.collected = true;
         nextLetterIndex++;
-        score++;
+        score += 10;
         snake.lengthTiles++;
+        pickupPulse = { ...hitPos, startedAt: performance.now(), color: '#2e9d3a' };
 
         playPickupSound();
-        bump(wordDisplay);
-        burst(pickupAt.px, pickupAt.py, { color: '#f4b942', count: 5, distance: Math.min(32, tile) });
-        floatLabel(letter.char, pickupAt.px, pickupAt.py - tile * .3);
+        wordDisplay.renderWord(currentWord, nextLetterIndex, diffMenu.getDifficulty(), false);
+        wordDisplay.bumpTarget();
+        burst(hitPos.px, hitPos.py, { color: '#2e9d3a', count: 8, distance: Math.min(38, tile) });
+        floatLabel(`+10 ${hit.char}`, hitPos.px, hitPos.py - tile * 0.35);
 
-        updateWordDisplay(false);
-
+        // Word completed!
         if (nextLetterIndex >= currentWord.length) {
           playWordSuccessSound();
+          score += 50;
           currentWordIndex++;
-          updateHUD();
-          spawnSnake(true);
-          startWord();
+          setTimeout(() => {
+            if (gameRunning) loadNextWord();
+          }, 300);
         }
       } else {
-        return handleCollision();
+        // Wrong letter eaten!
+        playDamageSound();
+        screenHit();
+        lives--;
+        wordDisplay.updateLives(lives);
+        burst(hitPos.px, hitPos.py, { color: '#d94a4a', count: 8, distance: Math.min(38, tile) });
+        floatLabel('Aïe ! Mauvaise lettre', hitPos.px, hitPos.py - tile * 0.35, { error: true });
+
+        if (lives <= 0) {
+          handleGameOver();
+          return false;
+        }
       }
     }
 
-    while (snake.cells.length > snake.lengthTiles) snake.cells.pop();
+    while (snake.cells.length > snake.lengthTiles) {
+      snake.cells.pop();
+    }
+
     return true;
   }
 
-  // --- Collision / death / victory ---
-  function loseLife() {
-    lives--;
+  function handleCollision(isWallOrSelf = false) {
     playDamageSound();
     screenHit();
-    updateHUD();
-    if (livesCounter) {
-      livesCounter.classList.remove('lives-lost');
-      void livesCounter.offsetWidth;
-      livesCounter.classList.add('lives-lost');
-      livesCounter.addEventListener('animationend', () => livesCounter.classList.remove('lives-lost'), { once: true });
-    }
-  }
+    lives--;
+    wordDisplay.updateLives(lives);
 
-  function handleCollision() {
-    if (lives > 1) {
-      nextLetterIndex = 0;
-      loseLife();
-      spawnSnake(true);
-      setPaused(true);
-
-      setTimeout(async () => {
-        placeLettersForCurrentWord();
-        await runCountdown(currentWord);
-        updateWordDisplay(false);
-        setPaused(false);
-        lastMoveTime = performance.now() / 1000;
-      }, 200);
-
+    if (lives <= 0) {
+      handleGameOver();
       return false;
     }
 
-    loseLife();
-    return handleDeath();
+    // Reset snake to center if collided with wall or self
+    if (isWallOrSelf) {
+      spawnSnake(true);
+    }
+    return true;
   }
 
-  function handleDeath() {
+  function handleGameOver() {
     gameRunning = false;
-    gamePaused  = false;
-
-    if (score > highscore) {
-      highscore = score;
-      try { localStorage.setItem('snake_highscore', String(highscore)); } catch (_) {}
-    }
+    const elapsedSec = Math.round((performance.now() - (gameStartTime || performance.now())) / 1000);
+    const m = Math.floor(elapsedSec / 60);
+    const s = String(elapsedSec % 60).padStart(2, '0');
+    const timeFormatted = `${m}m${s}s`;
 
     triggerEndGameSequence({
       gameId: 'snakemots',
       gameTitle: 'Snake Mots 🐍',
       currentScore: currentWordIndex,
-      scoreFormatted: `${currentWordIndex} mots`,
+      scoreFormatted: `${currentWordIndex} mots • ${lives} ♥ • ${timeFormatted}`,
       isLowerBetter: false,
-      onClose: restartGame,
+      extraMetrics: {
+        wordsCount: currentWordIndex,
+        livesRemaining: lives,
+        timeElapsed: elapsedSec,
+      },
+      onClose: () => {
+        diffMenu.showMenu();
+      },
     });
-
-    return false;
   }
 
-  function handleVictory() {
+  function handleWin() {
     gameRunning = false;
-    gamePaused  = false;
+    playWordSuccessSound();
+    const elapsedSec = Math.round((performance.now() - (gameStartTime || performance.now())) / 1000);
+    const m = Math.floor(elapsedSec / 60);
+    const s = String(elapsedSec % 60).padStart(2, '0');
+    const timeFormatted = `${m}m${s}s`;
 
     triggerEndGameSequence({
       gameId: 'snakemots',
       gameTitle: 'Snake Mots 🐍',
-      currentScore: currentWordIndex,
-      scoreFormatted: `${currentWordIndex} mots`,
+      currentScore: words.length,
+      scoreFormatted: `${words.length} mots • ${lives} ♥ • ${timeFormatted}`,
       isLowerBetter: false,
-      onClose: restartGame,
+      extraMetrics: {
+        wordsCount: words.length,
+        livesRemaining: lives,
+        timeElapsed: elapsedSec,
+      },
+      onClose: () => {
+        diffMenu.showMenu();
+      },
     });
   }
 
-  function restartGame() {
-    if (countdownInterval) {
-      clearInterval(countdownInterval);
-      countdownInterval = null;
-    }
-    isCountingDown = false;
-    hideCountdown();
-    currentWordIndex = 0;
-    score  = 0;
-    lives  = MAX_LIVES;
-    updateHUD();
-    startNewGame();
-  }
+  async function startNewGame(selectedDiff) {
+    onResize();
+    diffMenu.setDifficulty(selectedDiff);
 
-  function setPaused(p) { gamePaused = p; }
-  function togglePause() {
-    if (!gameRunning || isCountingDown) return;
-    setPaused(!gamePaused);
-    if (!gamePaused) lastMoveTime = performance.now() / 1000;
-  }
-
-  // --- Game loop ---
-  function startNewGame() {
-    resizeCanvas();
+    score = 0;
+    lives = MAX_LIVES;
     currentWordIndex = 0;
-    score            = 0;
-    lives            = 3;
-    speedTilesPerSec = BASE_SPEED;
-    moveInterval     = 1 / BASE_SPEED;
-    spawnSnake(false);
-    updateHUD();
+    gameStartTime = performance.now();
+    speedTilesPerSec = BASE_SPEED + selectedDiff * 0.7;
+    moveInterval = 1 / speedTilesPerSec;
+
+    wordDisplay.updateLives(lives);
     gameRunning = true;
-    gamePaused  = false;
-    startWord();
-    lastMoveTime = performance.now() / 1000;
+    pauseManager.setPaused(false);
+
+    if (!words.length) {
+      words = await loadWeekWords();
+    }
+
+    loadNextWord();
   }
 
   function update(timeMs) {
-    if (!gameRunning || gamePaused) { draw(); requestAnimationFrame(update); return; }
+    if (!gameRunning || pauseManager.isPaused() || countdown.isActive()) {
+      draw();
+      requestAnimationFrame(update);
+      return;
+    }
 
     const t = timeMs / 1000;
     interpolation = (t - lastMoveTime) / moveInterval;
@@ -664,6 +363,9 @@ async function loadWords() {
 
   // --- Rendering ---
   function drawGridBackground() {
+    const rootStyle = getComputedStyle(document.documentElement);
+    const BG_COLOR = rootStyle.getPropertyValue('--bg').trim() || '#fbffd8';
+
     ctx.fillStyle = BG_COLOR;
     ctx.fillRect(0, 0, width, height);
 
@@ -689,121 +391,77 @@ async function loadWords() {
 
     ctx.beginPath();
     ctx.strokeStyle = 'rgba(0, 32, 0, 0.08)';
-    ctx.lineWidth   = 1;
+    ctx.lineWidth = 1;
     for (let c = 0; c <= cols; c++) { ctx.moveTo(c * tile, 0); ctx.lineTo(c * tile, gridH); }
     for (let r = 0; r <= rows; r++) { ctx.moveTo(0, r * tile); ctx.lineTo(gridW, r * tile); }
     ctx.stroke();
 
     ctx.strokeStyle = '#1a1a1a';
-    ctx.lineWidth   = 2.5;
+    ctx.lineWidth = 2.5;
     ctx.strokeRect(0, 0, gridW, gridH);
 
     ctx.restore();
   }
 
   function drawLetters() {
-    ctx.save();
-    ctx.textAlign    = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.font         = `${tile * 0.7}px monospace`;
-    for (const l of letters) {
-      const { px, py } = gridToPixel(l);
-      ctx.fillStyle = '#90ee90';
+    if (!letters || !letters.length) return;
+
+    letters.forEach(letter => {
+      if (letter.collected) return;
+      const { px, py } = gridToPixel(letter);
+      const isTarget = letter.index === nextLetterIndex;
+      const r = tile * 0.42;
+
+      // Outer neo-brutalist circle
+      ctx.fillStyle = '#1a1a1a';
       ctx.beginPath();
-      ctx.arc(px, py, tile * 0.45, 0, Math.PI * 2);
+      ctx.arc(px + 2, py + 2, r, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#004400';
-      ctx.fillText(l.char, px, py + 2);
-    }
-    ctx.restore();
+
+      // Inner pill
+      ctx.fillStyle = isTarget ? '#ffd77a' : '#ffffff';
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = '#1a1a1a';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Letter text
+      ctx.fillStyle = '#1a1a1a';
+      ctx.font = `900 ${Math.max(12, Math.floor(tile * 0.52))}px 'Outfit', sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(letter.char, px, py + 1);
+    });
   }
 
-  function drawSnakeInterpolated() {
-    if (!snake || snake.cells.length === 0) return;
-    const t     = Math.max(0, Math.min(1, interpolation));
-    const cells = snake.cells;
-
-    const headTo   = gridToPixel(cells[0]);
-    const headFrom = (prevCells && prevCells.length > 0) ? gridToPixel(prevCells[0]) : headTo;
-    const headPt   = {
-      px: headFrom.px + (headTo.px - headFrom.px) * t,
-      py: headFrom.py + (headTo.py - headFrom.py) * t,
-    };
-
-    const tailCell   = cells[cells.length - 1];
-    const tailCellPx = gridToPixel(tailCell);
-    const isGrowing  = prevCells && prevCells.length < cells.length;
-
-    let tailPt;
-    if (isGrowing && cells.length >= 2) {
-      const prev2Px = gridToPixel(cells[cells.length - 2]);
-      const tdx     = (tailCellPx.px - prev2Px.px) / tile;
-      const tdy     = (tailCellPx.py - prev2Px.py) / tile;
-      const bounce  = Math.sin(Math.PI * t) * tile * 0.55;
-      tailPt = {
-        px: tailCellPx.px + tdx * bounce,
-        py: tailCellPx.py + tdy * bounce,
-      };
-    } else {
-      const prevTailSrc = (prevCells && prevCells.length > 0)
-        ? prevCells[Math.min(prevCells.length - 1, cells.length - 1)]
-        : tailCell;
-      const tailFrom = gridToPixel(prevTailSrc);
-      tailPt = {
-        px: tailFrom.px + (tailCellPx.px - tailFrom.px) * t,
-        py: tailFrom.py + (tailCellPx.py - tailFrom.py) * t,
-      };
-    }
-
-    const pts = [headPt];
-    for (let i = 1; i < cells.length; i++) pts.push(gridToPixel(cells[i]));
-    pts.push(tailPt);
-
-    const strokePts = () => {
-      ctx.beginPath();
-      pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.px, p.py) : ctx.lineTo(p.px, p.py));
-    };
-
-    ctx.lineJoin = 'round';
-    ctx.lineCap  = 'round';
-
-    strokePts();
-    ctx.lineWidth   = tile * 0.78;
-    ctx.strokeStyle = '#2d7a2d';
+  function drawPickupPulse() {
+    if (!pickupPulse) return;
+    const age = (performance.now() - pickupPulse.startedAt) / 320;
+    if (age >= 1) { pickupPulse = null; return; }
+    ctx.save();
+    ctx.globalAlpha = 1 - age;
+    ctx.strokeStyle = pickupPulse.color || '#2e9d3a';
+    ctx.lineWidth = Math.max(2, tile * 0.08 * (1 - age));
+    ctx.beginPath();
+    ctx.arc(pickupPulse.px, pickupPulse.py, tile * (0.28 + age * 0.55), 0, Math.PI * 2);
     ctx.stroke();
-
-    strokePts();
-    ctx.lineWidth   = tile * 0.52;
-    ctx.strokeStyle = '#7ecb63';
-    ctx.stroke();
-
-    const eyeOff = tile * 0.18;
-    const eyeR   = Math.max(2, tile * 0.06);
-    const dir    = snake.dir || Dir.RIGHT;
-    ctx.fillStyle = '#001400';
-    for (const side of [-1, 1]) {
-      const ex = headPt.px - dir.x * eyeOff + dir.y * eyeOff * side;
-      const ey = headPt.py - dir.y * eyeOff - dir.x * eyeOff * side;
-      ctx.beginPath();
-      ctx.arc(ex, ey, eyeR, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    ctx.restore();
   }
 
   function draw() {
     drawGridBackground();
     drawLetters();
-    drawSnakeInterpolated();
+    drawPickupPulse();
+    drawSnake(ctx, snake, prevCells, interpolation, { tile, offsetX, offsetY });
   }
 
-  // --- Init ---
+  // --- Initial Startup ---
   (async () => {
-    resizeCanvas();
-    drawGridBackground();
-    await loadWords();
-    hideCountdown();
-    updateHUD();
-    showDifficultyMenu();
+    words = await loadWeekWords();
+    diffMenu.showMenu();
     requestAnimationFrame(update);
   })();
 })();

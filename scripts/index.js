@@ -1,27 +1,38 @@
-const passwordPopup   = document.getElementById('password-popup');
+// scripts/index.js
+import { loginAdmin, isAdminLoggedIn } from './crypto-auth.js?v=20260903_v4';
+
+const passwordPopup     = document.getElementById('password-popup');
 const userPasswordInput = document.getElementById('user-password');
 const submitPasswordBtn = document.getElementById('submit-password');
 const errorMsg          = document.getElementById('error-msg');
 
-const TARGET_HASH = 'cccf2f2d8fc19733dd9e69704d54e35a14771494383c50e8645100ddd14ac3a2';
-
-async function hashPassword(plainText) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(plainText);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
 async function validatePassword() {
   if (!userPasswordInput || !passwordPopup) return;
-  const enteredHash = await hashPassword(userPasswordInput.value);
-  if (enteredHash === TARGET_HASH) {
-    localStorage.setItem('mdpOk', 'true');
+  const pass = userPasswordInput.value;
+  if (!pass) return;
+
+  if (submitPasswordBtn) {
+    submitPasswordBtn.disabled = true;
+    submitPasswordBtn.textContent = 'Vérification...';
+  }
+
+  const ok = await loginAdmin(pass);
+
+  if (ok) {
     passwordPopup.style.display = 'none';
+    if (errorMsg) errorMsg.style.display = 'none';
   } else {
-    if (errorMsg) errorMsg.style.display = 'block';
+    if (errorMsg) {
+      errorMsg.textContent = 'Mot de passe incorrect !';
+      errorMsg.style.display = 'block';
+    }
     userPasswordInput.value = '';
+    userPasswordInput.focus();
+  }
+
+  if (submitPasswordBtn) {
+    submitPasswordBtn.disabled = false;
+    submitPasswordBtn.textContent = 'Valider';
   }
 }
 
@@ -37,6 +48,6 @@ if (userPasswordInput) {
   });
 }
 
-if (localStorage.getItem('mdpOk') === 'true' && passwordPopup) {
+if (isAdminLoggedIn() && passwordPopup) {
   passwordPopup.style.display = 'none';
 }

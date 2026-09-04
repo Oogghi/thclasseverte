@@ -1,6 +1,10 @@
+// scripts/sound.js
+// Universal web-audio synth sound effects for TH Classe Verte games.
+
 let audioCtx = null;
 let userHasInteracted = false;
 let lastHoverTime = 0;
+let lastHoverTarget = null;
 
 function unlockAudioContext() {
   userHasInteracted = true;
@@ -26,7 +30,7 @@ if (typeof window !== 'undefined') {
 
 function getAudioContext() {
   if (!userHasInteracted && (!audioCtx || audioCtx.state === 'suspended')) {
-    return null; // Don't trigger browser autoplay warning before user gesture
+    return null; // Prevent autoplay warning prior to user interaction
   }
   if (!audioCtx) {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -125,14 +129,14 @@ export function playDamageSound() {
 }
 
 /**
- * Satisfying chime when completing a word / finding a pair!
+ * Major triad chime (C5, E5, G5) when finding a word or completing a pair.
  */
 export function playWordSuccessSound() {
   try {
     const ctx = getAudioContext();
     if (!ctx) return;
 
-    const notes = [523.25, 659.25, 784.00]; // C5, E5, G5 major triad chime
+    const notes = [523.25, 659.25, 784.00];
     notes.forEach((freq, idx) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -153,20 +157,29 @@ export function playWordSuccessSound() {
   } catch (_) {}
 }
 
+const INTERACTIVE_SELECTOR = 'button, a, .btn, .btn-diff, .tab-btn, .btn-save-score, .btn-skip-grey, .btn-leaderboard-bottom, .vk-key';
+
 export function initSoundListeners() {
   document.addEventListener('mouseover', (e) => {
-    const target = e.target.closest('button, a, .btn, .tab-btn, .btn-save-score, .btn-skip-grey, .btn-leaderboard-bottom');
-    if (target) {
+    const target = e.target.closest(INTERACTIVE_SELECTOR);
+    if (target && target !== lastHoverTarget) {
+      lastHoverTarget = target;
       playHoverSound();
     }
-  });
+  }, { passive: true });
+
+  document.addEventListener('mouseout', (e) => {
+    if (e.target === lastHoverTarget) {
+      lastHoverTarget = null;
+    }
+  }, { passive: true });
 
   document.addEventListener('click', (e) => {
-    const target = e.target.closest('button, a, .btn, .tab-btn, .btn-save-score, .btn-skip-grey, .btn-leaderboard-bottom');
+    const target = e.target.closest(INTERACTIVE_SELECTOR);
     if (target) {
       playClickSound();
     }
-  });
+  }, { passive: true });
 }
 
 if (typeof document !== 'undefined') {
@@ -176,3 +189,12 @@ if (typeof document !== 'undefined') {
     initSoundListeners();
   }
 }
+
+export default {
+  playHoverSound,
+  playClickSound,
+  playPickupSound,
+  playDamageSound,
+  playWordSuccessSound,
+  initSoundListeners,
+};

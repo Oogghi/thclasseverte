@@ -1,0 +1,102 @@
+/* styles/space-invaders-mots.css - Neo-Brutalist Space Invaders Mots */
+@import url('common.css');
+@import url('game-components.css');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100vw; height: 100vh; overflow: hidden; }
+
+body {
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(circle at 16% 18%, rgba(255, 228, 179, .75), transparent 25%),
+    radial-gradient(circle at 85% 70%, rgba(156, 211, 151, .32), transparent 25%),
+    var(--bg);
+  font-family: 'Outfit', sans-serif;
+  user-select: none;
+}
+
+/* HUD Top Left (Score) */
+.hud-score-box {
+  position: fixed;
+  top: 12px;
+  left: 16px;
+  background: #ffffff;
+  border: var(--border);
+  box-shadow: var(--shadow);
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 0.95rem;
+  z-index: 10;
+}
+
+/* Game Canvas Shell */
+.game-shell {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 92px clamp(10px, 2vw, 24px) 10px;
+}
+
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 2.5px solid #1a1a1a;
+  border-radius: 16px;
+  background: #0d1f20;
+  box-shadow: 5px 5px 0 #1a1a1a;
+}
+
+.controls-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 8px;
+  display: flex;
+  gap: 16px;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, .65);
+  font-size: clamp(11px, .75vw, 14px);
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Mobile Controls */
+.mobile-controls {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .controls-hint { display: none; }
+  .mobile-controls {
+    display: grid;
+    grid-template-columns: 1fr 1.2fr 1fr;
+    gap: 10px;
+    padding: 6px 14px 12px;
+  }
+  .mobile-controls button {
+    border: var(--border);
+    border-radius: 10px;
+    background: #ffffff;
+    box-shadow: var(--shadow);
+    color: var(--text);
+    font: 800 22px/1 'Outfit', sans-serif;
+    min-height: 48px;
+    cursor: pointer;
+  }
+  .mobile-controls .shoot-button {
+    background: #ffd77a;
+    font-size: 16px;
+  }
+  .game-shell {
+    margin: 86px 8px 6px;
+  }
+  .hud-score-box {
+    top: 10px;
+    left: 10px;
+    padding: 6px 10px;
+    font-size: 0.85rem;
+  }
+}
