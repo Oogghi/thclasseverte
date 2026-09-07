@@ -463,9 +463,14 @@ export function showLeaderboardModal({
 
   const closeModal = () => {
     playClickSound();
-    overlay.classList.add('hidden');
-    overlay.remove();
-    if (typeof onClose === 'function') onClose();
+    const card = overlay.querySelector('.leaderboard-card');
+    if (card) card.classList.add('modal-exit');
+    overlay.classList.add('overlay-exit');
+    setTimeout(() => {
+      overlay.classList.add('hidden');
+      overlay.remove();
+      if (typeof onClose === 'function') onClose();
+    }, 180);
   };
 
   btnClose.addEventListener('click', closeModal);

@@ -97,94 +97,92 @@ export function setupSnakeControls({ onDirection, onAction, isInputActive = () =
 }
 
 /**
- * Draws the smooth interpolated snake body, head, eyes, and tongue.
+ * Draws the smooth interpolated snake body, head, and eyes.
+ * Restored to the clean, smooth dual-stroke continuous polyline style.
  */
 export function drawSnake(ctx, snake, prevCells, interpolation, { tile, offsetX, offsetY }) {
-  if (!snake || !snake.cells.length) return;
+  if (!snake || !snake.cells || snake.cells.length === 0) return;
 
+  const gridToPixel = (cell) => ({
+    px: offsetX + (cell.x + 0.5) * tile,
+    py: offsetY + (cell.y + 0.5) * tile,
+  });
+
+  const t     = Math.max(0, Math.min(1, interpolation));
   const cells = snake.cells;
-  const t = Math.max(0, Math.min(1, interpolation));
 
-  function getPos(idx) {
-    const cur = cells[idx];
-    const prev = prevCells && prevCells[idx] ? prevCells[idx] : cur;
-    return {
-      x: offsetX + (prev.x + (cur.x - prev.x) * t + 0.5) * tile,
-      y: offsetY + (prev.y + (cur.y - prev.y) * t + 0.5) * tile,
+  // Head tip: slides smoothly from prevCells[0] (old head) to cells[0] (new head)
+  const headTo   = gridToPixel(cells[0]);
+  const headFrom = (prevCells && prevCells.length > 0) ? gridToPixel(prevCells[0]) : headTo;
+  const headPt   = {
+    px: headFrom.px + (headTo.px - headFrom.px) * t,
+    py: headFrom.py + (headTo.py - headFrom.py) * t,
+  };
+
+  // Tail trailing edge: smoothly retracts or bounces upon eating
+  const tailCell   = cells[cells.length - 1];
+  const tailCellPx = gridToPixel(tailCell);
+  const isGrowing  = prevCells && prevCells.length < cells.length;
+
+  let tailPt;
+  if (isGrowing && cells.length >= 2) {
+    const prev2Px = gridToPixel(cells[cells.length - 2]);
+    const tdx     = (tailCellPx.px - prev2Px.px) / tile;
+    const tdy     = (tailCellPx.py - prev2Px.py) / tile;
+    const bounce  = Math.sin(Math.PI * t) * tile * 0.55;
+    tailPt = {
+      px: tailCellPx.px + tdx * bounce,
+      py: tailCellPx.py + tdy * bounce,
+    };
+  } else {
+    const prevTailSrc = (prevCells && prevCells.length > 0)
+      ? prevCells[Math.min(prevCells.length - 1, cells.length - 1)]
+      : tailCell;
+    const tailFrom = gridToPixel(prevTailSrc);
+    tailPt = {
+      px: tailFrom.px + (tailCellPx.px - tailFrom.px) * t,
+      py: tailFrom.py + (tailCellPx.py - tailFrom.py) * t,
     };
   }
 
-  const radius = Math.max(6, Math.floor(tile * 0.42));
+  // Point list: [headPt] -> [grid-aligned body joints] -> [tailPt]
+  const pts = [headPt];
+  for (let i = 1; i < cells.length; i++) pts.push(gridToPixel(cells[i]));
+  pts.push(tailPt);
 
-  // 1. Draw Snake Body Segments
+  const strokePts = () => {
+    ctx.beginPath();
+    pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.px, p.py) : ctx.lineTo(p.px, p.py));
+  };
+
   ctx.save();
-  ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
+  ctx.lineCap  = 'round';
 
-  for (let i = cells.length - 1; i > 0; i--) {
-    const p1 = getPos(i);
-    const p2 = getPos(i - 1);
+  // Outer border stroke
+  strokePts();
+  ctx.lineWidth   = tile * 0.78;
+  ctx.strokeStyle = '#2d7a2d';
+  ctx.stroke();
 
-    // Segment outline / border
-    ctx.strokeStyle = '#1a1a1a';
-    ctx.lineWidth = radius * 2 + 4;
+  // Inner green body stroke
+  strokePts();
+  ctx.lineWidth   = tile * 0.52;
+  ctx.strokeStyle = '#7ecb63';
+  ctx.stroke();
+
+  // Sleek minimalist eyes on head
+  const eyeOff = tile * 0.18;
+  const eyeR   = Math.max(2, tile * 0.06);
+  const dir    = snake.dir || Dir.RIGHT;
+  ctx.fillStyle = '#001400';
+  for (const side of [-1, 1]) {
+    const ex = headPt.px - dir.x * eyeOff + dir.y * eyeOff * side;
+    const ey = headPt.py - dir.y * eyeOff - dir.x * eyeOff * side;
     ctx.beginPath();
-    ctx.moveTo(p1.x, p1.y);
-    ctx.lineTo(p2.x, p2.y);
-    ctx.stroke();
-
-    // Segment fill (green gradient)
-    const ratio = i / cells.length;
-    ctx.strokeStyle = ratio > 0.6 ? '#3cb84a' : '#2e9d3a';
-    ctx.lineWidth = radius * 2;
-    ctx.beginPath();
-    ctx.moveTo(p1.x, p1.y);
-    ctx.lineTo(p2.x, p2.y);
-    ctx.stroke();
+    ctx.arc(ex, ey, eyeR, 0, Math.PI * 2);
+    ctx.fill();
   }
-
-  // 2. Draw Snake Head
-  const headPos = getPos(0);
-  const headRadius = radius + 2;
-
-  // Head shadow / border
-  ctx.fillStyle = '#1a1a1a';
-  ctx.beginPath();
-  ctx.arc(headPos.x, headPos.y, headRadius + 2, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Head body
-  ctx.fillStyle = '#227f2c';
-  ctx.beginPath();
-  ctx.arc(headPos.x, headPos.y, headRadius, 0, Math.PI * 2);
-  ctx.fill();
-
-  // 3. Eyes & Tongue
-  const dir = snake.dir || Dir.RIGHT;
-  const eyeOffset = headRadius * 0.45;
-  const perpX = -dir.y;
-  const perpY = dir.x;
-
-  const eye1X = headPos.x + dir.x * (headRadius * 0.35) + perpX * eyeOffset;
-  const eye1Y = headPos.y + dir.y * (headRadius * 0.35) + perpY * eyeOffset;
-  const eye2X = headPos.x + dir.x * (headRadius * 0.35) - perpX * eyeOffset;
-  const eye2Y = headPos.y + dir.y * (headRadius * 0.35) - perpY * eyeOffset;
-
-  // White eyes
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath();
-  ctx.arc(eye1X, eye1Y, Math.max(3, headRadius * 0.32), 0, Math.PI * 2);
-  ctx.arc(eye2X, eye2Y, Math.max(3, headRadius * 0.32), 0, Math.PI * 2);
-  ctx.fill();
-
-  // Black pupils looking in current direction
-  ctx.fillStyle = '#1a1a1a';
-  const pupilOffsetX = dir.x * 2;
-  const pupilOffsetY = dir.y * 2;
-  ctx.beginPath();
-  ctx.arc(eye1X + pupilOffsetX, eye1Y + pupilOffsetY, Math.max(1.5, headRadius * 0.16), 0, Math.PI * 2);
-  ctx.arc(eye2X + pupilOffsetX, eye2Y + pupilOffsetY, Math.max(1.5, headRadius * 0.16), 0, Math.PI * 2);
-  ctx.fill();
 
   ctx.restore();
 }

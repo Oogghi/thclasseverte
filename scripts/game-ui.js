@@ -178,8 +178,15 @@ export function setupDifficultyMenu({
 
   function hideMenu() {
     if (overlayEl) {
-      overlayEl.classList.add('hidden');
-      overlayEl.style.display = 'none';
+      const card = overlayEl.querySelector('.difficulty-card');
+      if (card) card.classList.add('modal-exit');
+      overlayEl.classList.add('overlay-exit');
+      setTimeout(() => {
+        overlayEl.classList.add('hidden');
+        overlayEl.style.display = 'none';
+        if (card) card.classList.remove('modal-exit');
+        overlayEl.classList.remove('overlay-exit');
+      }, 190);
     }
   }
 

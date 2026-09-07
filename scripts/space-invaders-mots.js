@@ -349,7 +349,8 @@ import {
           if (Math.abs(s.x - inv.x) <= inv.w / 2 && Math.abs(s.y - inv.y) <= inv.h / 2) {
             playerShots.splice(i, 1);
 
-            if (inv.letterIndex === nextLetterIndex) {
+            const expectedChar = currentWord[nextLetterIndex]?.toUpperCase();
+            if (inv.char === expectedChar) {
               // Correct target letter shot!
               inv.alive = false;
               nextLetterIndex++;
@@ -453,13 +454,12 @@ import {
     ctx.save();
     for (const inv of invaders) {
       if (!inv.alive) continue;
-      const isTarget = inv.letterIndex === nextLetterIndex;
 
       // Alien container
-      ctx.fillStyle = isTarget ? '#ffd77a' : '#ffffff';
+      ctx.fillStyle = '#ffffff';
       ctx.fillRect(inv.x - inv.w / 2, inv.y - inv.h / 2, inv.w, inv.h);
       ctx.strokeStyle = '#1a1a1a';
-      ctx.lineWidth = isTarget ? 2.5 : 1.5;
+      ctx.lineWidth = 1.5;
       ctx.strokeRect(inv.x - inv.w / 2, inv.y - inv.h / 2, inv.w, inv.h);
 
       // Letter inside

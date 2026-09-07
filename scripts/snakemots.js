@@ -203,7 +203,8 @@ import {
       const hit = letters[hitIndex];
       const hitPos = gridToPixel(hit);
 
-      if (hit.index === nextLetterIndex) {
+      const expectedChar = currentWord[nextLetterIndex]?.toUpperCase();
+      if (hit.char === expectedChar) {
         // Correct letter eaten!
         hit.collected = true;
         nextLetterIndex++;
@@ -409,7 +410,6 @@ import {
     letters.forEach(letter => {
       if (letter.collected) return;
       const { px, py } = gridToPixel(letter);
-      const isTarget = letter.index === nextLetterIndex;
       const r = tile * 0.42;
 
       // Outer neo-brutalist circle
@@ -419,7 +419,7 @@ import {
       ctx.fill();
 
       // Inner pill
-      ctx.fillStyle = isTarget ? '#ffd77a' : '#ffffff';
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.arc(px, py, r, 0, Math.PI * 2);
       ctx.fill();

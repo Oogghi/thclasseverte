@@ -92,7 +92,6 @@ body.feedback-screen-hit::after {
   42% { transform: scale(1.08); }
 }
 
-.word-target.feedback-bump,
 .feedback-bump.centered-x {
   animation-name: feedback-bump-centered;
 }
@@ -177,4 +176,61 @@ body.feedback-screen-hit::after {
 .bottom-actions button:active {
   transform: translate(1px, 1px);
   box-shadow: var(--shadow-active);
+}
+
+/* --- Smooth Global Entry / Exit & Micro-Animations --- */
+@keyframes pageFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+body {
+  animation: pageFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes modalOverlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalOverlayFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes modalPopIn {
+  0% { transform: scale(0.92) translateY(10px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+@keyframes modalPopOut {
+  0% { transform: scale(1) translateY(0); opacity: 1; }
+  100% { transform: scale(0.94) translateY(8px); opacity: 0; }
+}
+
+.modal-enter {
+  animation: modalPopIn 0.26s cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards;
+}
+
+.modal-exit {
+  animation: modalPopOut 0.2s cubic-bezier(0.4, 0, 0.8, 0.4) forwards !important;
+}
+
+.overlay-enter {
+  animation: modalOverlayFadeIn 0.24s ease-out forwards;
+}
+
+.overlay-exit {
+  animation: modalOverlayFadeOut 0.2s ease-in forwards !important;
+}
+
+/* Pause & Countdown Entrance Polish */
+@keyframes pausePopIn {
+  0% { transform: translate(-50%, -50%) scale(0.92); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+.pause-card:not(.hidden) {
+  transform: translate(-50%, -50%);
+  animation: pausePopIn 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
 }

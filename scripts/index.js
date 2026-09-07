@@ -19,8 +19,13 @@ async function validatePassword() {
   const ok = await loginAdmin(pass);
 
   if (ok) {
-    passwordPopup.style.display = 'none';
-    if (errorMsg) errorMsg.style.display = 'none';
+    const content = passwordPopup.querySelector('.popup-content');
+    if (content) content.classList.add('modal-exit');
+    passwordPopup.classList.add('overlay-exit');
+    setTimeout(() => {
+      passwordPopup.style.display = 'none';
+      if (errorMsg) errorMsg.style.display = 'none';
+    }, 190);
   } else {
     if (errorMsg) {
       errorMsg.textContent = 'Mot de passe incorrect !';

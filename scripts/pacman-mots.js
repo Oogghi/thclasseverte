@@ -243,7 +243,8 @@ import {
     if (hit) {
       const screenPos = grid.gridToScreen(hit.x, hit.y);
 
-      if (hit.index === nextLetterIndex) {
+      const expectedChar = currentWord[nextLetterIndex]?.toUpperCase();
+      if (hit.char === expectedChar) {
         // Correct letter eaten!
         hit.collected = true;
         nextLetterIndex++;
@@ -430,7 +431,6 @@ import {
     letters.forEach(letter => {
       if (letter.collected) return;
       const pos = grid.gridToScreen(letter.x, letter.y);
-      const isTarget = letter.index === nextLetterIndex;
       const r = tile * 0.44;
 
       // Shadow
@@ -440,13 +440,13 @@ import {
       ctx.fill();
 
       // Pill
-      ctx.fillStyle = isTarget ? '#ffd77a' : '#ffffff';
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.strokeStyle = '#1a1a1a';
-      ctx.lineWidth = isTarget ? 2 : 1.2;
+      ctx.lineWidth = 1.2;
       ctx.stroke();
 
       // Letter text
